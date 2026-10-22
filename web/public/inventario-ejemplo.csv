@@ -1,0 +1,9 @@
+sku,nombre,zona,stock_registrado,stock_inicial
+DIST-001,Caja de detergente 5kg,A,120,120
+DIST-002,Pack de botellas de aceite 1L,A,80,80
+DIST-003,Caja de arroz 50kg,A,45,45
+DIST-004,Caja de fideos 24un,B,200,200
+DIST-005,Pack de conservas de atún,B,150,150
+DIST-006,Caja de leche evaporada 48un,B,60,60
+DIST-007,Caja de azúcar 50kg,C,30,30
+DIST-008,Pack de papel higiénico 12un,C,90,90
