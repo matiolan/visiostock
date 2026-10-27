@@ -25,3 +25,11 @@ python main.py --fuente video.mp4 --mostrar --sin-envio   # probar sin tocar la 
 python main.py                                            # cámara de .env, enviando a la API
 pytest tests                                              # pruebas del contador
 ```
+
+## Evaluación de precisión
+
+`evaluar.py` corre el conteo (sin enviar a la API) sobre videos con conteo manual y calcula la precisión de conteo frente a la meta del Sprint 1 (≥ 85 %).
+
+```bash
+python evaluar.py datos/etiquetas.csv   # columnas: video,entradas,salidas
+```
