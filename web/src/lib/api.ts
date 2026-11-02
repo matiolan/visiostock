@@ -12,7 +12,6 @@ export async function api(body?:Record<string,unknown>){
  case 'producto':{
  if(!Number.isSafeInteger(body.stock)||Number(body.stock)<0)throw new Error('El stock debe ser un entero no negativo.');
  result=await db.from('vs_productos').insert({empresa_id:m.rol==='administrador'?body.empresa:m.empresa_id,almacen_id:body.almacen,sku:String(body.sku).trim(),nombre:String(body.nombre).trim(),stock:body.stock});break;}
- case 'movimiento':result=await db.rpc('vs_registrar_movimiento',{p:body.producto,s:body.sentido,n:body.cantidad});break;
  case 'asignar':result=await db.rpc('vs_asignar_cliente',{correo:String(body.email).trim().toLowerCase(),empresa:body.empresa});break;
  default:throw new Error('Operación no disponible.');}
  if(result.error){if(result.error.message.includes('Stock insuficiente'))throw new Error('Stock insuficiente para registrar esa salida.');if(result.error.code==='23505')throw new Error('Ya existe un registro con esos datos.');throw new Error('No se pudo guardar. Comprueba tu permiso, los datos y que el almacén pertenezca a la empresa seleccionada.');}return{ok:true};
