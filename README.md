@@ -2,6 +2,8 @@
 
 Gestión de inventario y verificación visual por empresa. La web renovada reemplaza el prototipo anterior y conserva el historial del repositorio.
 
+**Web publicada: https://visiostock-mia.vercel.app**
+
 - `web/`: React, TypeScript y Vite. Portada pública y panel privado con login Supabase, inventario, CSV, movimientos, verificaciones con foto y alertas.
 - `supabase/`: esquema inicial y migración de verificaciones, con acceso por empresa y evidencia privada.
 - `vision/`: servicio Python de análisis de fotografías y pruebas. Requiere pesos de un detector validado; no se incluyen resultados simulados como detecciones reales.
@@ -15,7 +17,9 @@ Si tu base ya está configurada, no repitas el esquema inicial. Ejecuta únicame
 
 ## Publicar en Vercel
 
-Utiliza el proyecto existente conectado a este repositorio. Root Directory: `web`. Framework: Vite. Build: `npm run build`. Output: `dist`. Variables: `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`. `VITE_VISION_URL` se configura cuando el servicio Python esté desplegado por HTTPS. `web/vercel.json` conserva las rutas de la aplicación al recargar.
+La publicación actual está en la cuenta de Mia mediante Vercel Drop y usa el paquete compilado de esta web. Conserva este repositorio como fuente. Esa publicación no se actualiza automáticamente al hacer push: sube una nueva compilación al mismo proyecto de Vercel o usa Vercel CLI. Para conectar el repositorio personal matiolan/visiostock a Vercel se requiere la cuenta propietaria del repositorio.
+
+Para una publicación futura mediante Git, configura Root Directory: `web`. Framework: Vite. Build: `npm run build`. Output: `dist`. Variables: `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`. `VITE_VISION_URL` se configura cuando el servicio Python esté desplegado por HTTPS. `web/vercel.json` conserva las rutas de la aplicación al recargar.
 
 Configura en Supabase Authentication → URL Configuration la URL pública y la redirección `/recuperar`.
 
