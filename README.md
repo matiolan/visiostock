@@ -1,24 +1,26 @@
 # VisioStock
 
-Tu almacén, contado y con prueba. Una cámara con visión artificial que cuenta cada caja que entra o sale de una zona del almacén y guarda la foto de cada movimiento.
+Gestión de inventario y verificación visual por empresa. La web renovada reemplaza el prototipo anterior y conserva el historial del repositorio.
 
-Proyecto Final de Carrera III · USIL · Grupo 4
+- `web/`: React, TypeScript y Vite. Portada pública y panel privado con login Supabase, inventario, CSV, movimientos, verificaciones con foto y alertas.
+- `supabase/`: esquema inicial y migración de verificaciones, con acceso por empresa y evidencia privada.
+- `vision/`: servicio Python de análisis de fotografías y pruebas. Requiere pesos de un detector validado; no se incluyen resultados simulados como detecciones reales.
+- `docs/`: documentación académica conservada del proyecto.
 
-| Carpeta | Contenido | Responsable |
-| --- | --- | --- |
-| `web/` | App Next.js (inicio, panel, inventario, API), desplegada en Vercel | Todo el equipo |
-| `web/app/dashboard` | Panel de stock registrado vs. detectado (HU-12) | Matio Peña |
-| `web/app/api`, `web/app/inventario`, `supabase/` | API de movimientos e importador (HU-09, HU-10) | Alvaro Chavez |
-| `vision/` | Detección, seguimiento y conteo de cajas con YOLO (HU-05, HU-06) | Henry Pillpe |
-| `web/app/page.tsx`, `web/app/validacion`, `docs/` | Página de inicio e investigación con clientes (HU-01 a HU-04) | Mia Saavedra |
+## Ejecutar la web
 
-## Desarrollo local
+Desde `web/`: `npm ci`, copiar `.env.example` a `.env`, configurar las dos variables públicas de Supabase y ejecutar `npm run dev`.
 
-```bash
-cd web
-cp .env.example .env.local   # pegar las claves que comparte el equipo
-npm install
-npm run dev
-```
+Si tu base ya está configurada, no repitas el esquema inicial. Ejecuta únicamente las migraciones que te falten. La migración `supabase/02_verificaciones.sql` ya fue aplicada al proyecto Supabase configurado durante la renovación.
 
-Cada integrante trabaja en su rama (`feature/nombre-hu-xx`) y une sus cambios a `main` con un Pull Request. Al unirse, Vercel publica el cambio en producción.
+## Publicar en Vercel
+
+Utiliza el proyecto existente conectado a este repositorio. Root Directory: `web`. Framework: Vite. Build: `npm run build`. Output: `dist`. Variables: `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`. `VITE_VISION_URL` se configura cuando el servicio Python esté desplegado por HTTPS. `web/vercel.json` conserva las rutas de la aplicación al recargar.
+
+Configura en Supabase Authentication → URL Configuration la URL pública y la redirección `/recuperar`.
+
+## Comprobar
+
+En `web/`, `npm test` comprueba el lector CSV y `npm run build` valida TypeScript y la compilación. Para las pruebas del servicio: instala `vision/requirements-test.txt` y ejecuta `python -m unittest discover -s vision -p "test_*.py"`. Estas pruebas usan un detector simulado; no evalúan la precisión de pesos reales.
+
+El conteo automático necesita modelo y servicio activos. La captura y el conteo manual con evidencia pueden usarse sin YOLO. Consulta `vision/README.md` para configurar el detector.

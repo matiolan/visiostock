@@ -1,8 +1,11 @@
 node_modules/
+dist/
 .env
-.env.local
-.env*.local
-.DS_Store
+.env.*
+!.env.example
+.venv/
 __pycache__/
+*.pyc
 *.pt
-vision/.venv/
+*.onnx
+.vercel/
