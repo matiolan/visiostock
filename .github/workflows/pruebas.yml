@@ -1,7 +1,10 @@
 name: Comprobar VisioStock
+# Pruebas funcionales + pruebas de seguridad (SCRUM-65).
+# Corre en cada push de CUALQUIER rama, así los errores de seguridad se
+# detectan en la rama propia antes de abrir el PR hacia main.
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
 permissions:
@@ -33,3 +36,72 @@ jobs:
           cache-dependency-path: vision/requirements-test.txt
       - run: python -m pip install -r vision/requirements-test.txt
       - run: python -m unittest discover -s vision -p "test_*.py"
+
+  # ---------- Seguridad ----------
+  seguridad-dependencias-web:
+    name: Seguridad · dependencias web (npm audit)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      # Falla si hay vulnerabilidades de severidad moderada o mayor.
+      - run: npm audit --audit-level=moderate
+
+  seguridad-dependencias-vision:
+    name: Seguridad · dependencias visión (pip-audit)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pip-audit
+      # Falla si alguna dependencia tiene una vulnerabilidad conocida.
+      - run: pip-audit -r vision/requirements.txt -r vision/requirements-test.txt
+
+  seguridad-secretos:
+    name: Seguridad · secretos expuestos (gitleaks)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # Falla si encuentra claves, tokens o contraseñas en el historial.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  seguridad-codigo:
+    name: Seguridad · análisis estático (CodeQL ${{ matrix.lenguaje }})
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lenguaje: [javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.lenguaje }}
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.lenguaje }}
+          output: resultados-codeql
+      # CodeQL solo publica alertas; este paso hace que el pipeline falle
+      # si encontró algún problema de seguridad.
+      - name: Fallar si CodeQL encontró problemas
+        run: |
+          total=$(jq '[.runs[].results[]] | length' resultados-codeql/*.sarif)
+          echo "Hallazgos de CodeQL: $total"
+          jq -r '.runs[].results[] | "- \(.ruleId): \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' resultados-codeql/*.sarif
+          test "$total" -eq 0
