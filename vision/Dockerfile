@@ -18,5 +18,6 @@ ENV YOLO_CONFIG_DIR=/tmp/ultralytics PORT=7860
 EXPOSE 7860
 
 # Un solo proceso: el modelo y el límite de frecuencia viven en memoria.
-# --proxy-headers da la IP real; el contenedor solo debe ser accesible por el proxy.
-CMD ["sh", "-c", "exec uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --proxy-headers --forwarded-allow-ips=*"]
+# Solo se confía en X-Forwarded-For de un proxy en 127.0.0.1 (el túnel comparte la red del
+# contenedor): con --forwarded-allow-ips=* un cliente podría falsear su IP y evadir el límite.
+CMD ["sh", "-c", "exec uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --proxy-headers"]

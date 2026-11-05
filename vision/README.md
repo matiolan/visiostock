@@ -41,11 +41,13 @@ La aplicación Vite puede publicarse en Vercel con las variables de Supabase y `
 
 ### Despliegue por HTTPS
 
-`vision/Dockerfile` construye el servicio con PyTorch para CPU. Los pesos no están en Git: coloca `vision/models/best.pt` antes de construir y sirve el contenedor únicamente a través de un proxy HTTPS, porque confía en sus cabeceras `X-Forwarded-*`.
+`vision/Dockerfile` construye el servicio con PyTorch para CPU. Los pesos no están en Git: coloca `vision/models/best.pt` antes de construir. El túnel de Cloudflare da la URL HTTPS sin abrir puertos ni usar una cuenta, y comparte la red del contenedor porque el servicio solo acepta `X-Forwarded-For` desde `127.0.0.1`. La URL aparece en el registro del túnel, cambia cada vez que este se reinicia y deja de responder si el equipo se apaga.
 
 ```powershell
 docker build -t visiostock-vision vision
-docker run -p 127.0.0.1:7860:7860 --env-file vision/.env visiostock-vision
+docker run -d --name visiostock-vision --env-file vision/.env visiostock-vision
+docker run -d --name visiostock-tunel --network container:visiostock-vision cloudflare/cloudflared:latest tunnel --no-autoupdate --url http://127.0.0.1:7860
+docker logs visiostock-tunel
 ```
 
 Al tener la URL pública del servicio:
