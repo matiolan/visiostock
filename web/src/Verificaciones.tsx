@@ -3,6 +3,8 @@ import { Camera, ScanLine, ImagePlus, ClipboardCheck, Bell, X } from 'lucide-rea
 import { analizarImagen, estadoVision, guardarVerificacion, listarVerificaciones, revisarAlerta, verEvidencia, type Analisis, type Verificacion } from './lib/verificaciones';
 type Producto={id:string;empresa_id:string;almacen_id:string;sku:string;nombre:string;stock:number};
 type Almacen={id:string;nombre:string};
+// SCRUM-68: la vista previa solo acepta URLs blob: creadas por el navegador (evita XSS a través del DOM).
+const esUrlLocal=(url:string)=>/^blob:/.test(url);
 export default function Verificaciones({productos,almacenes,soloAlertas=false}:{productos:Producto[];almacenes:Almacen[];soloAlertas?:boolean}){
  const [historial,setHistorial]=useState<Verificacion[]>([]),[errorHistorial,setErrorHistorial]=useState(''),[cargandoHistorial,setCargandoHistorial]=useState(true);
  const [productoId,setProductoId]=useState(''),[foto,setFoto]=useState<File|null>(null),[preview,setPreview]=useState('');
@@ -14,7 +16,7 @@ export default function Verificaciones({productos,almacenes,soloAlertas=false}:{
  const producto=productos.find(p=>p.id===productoId);
  async function cargar(){setCargandoHistorial(true);try{setHistorial(await listarVerificaciones());setErrorHistorial('');}catch(e){setErrorHistorial(e instanceof Error?e.message:'No se pudo cargar el historial.');}finally{setCargandoHistorial(false);}}
  useEffect(()=>{mounted.current=true;void cargar();void estadoVision().then(v=>{setVision(v);setClase(v.clases[0]||'');}).catch(()=>setVision({listo:false,clases:[],mensaje:'El servicio de visión no responde. La revisión manual sigue disponible.'}));return()=>{mounted.current=false;activeStream.current?.getTracks().forEach(t=>t.stop());};},[]);
- useEffect(()=>{if(!foto){setPreview('');return;}const url=URL.createObjectURL(foto);setPreview(url);return()=>URL.revokeObjectURL(url);},[foto]);
+ useEffect(()=>{if(!foto){setPreview('');return;}const url=URL.createObjectURL(foto);setPreview(esUrlLocal(url)?url:'');return()=>URL.revokeObjectURL(url);},[foto]);
  useEffect(()=>{if(video.current&&stream){video.current.srcObject=stream;void video.current.play().catch(()=>setMensaje('Pulsa reproducir en la cámara para continuar.'));}},[stream]);
  function detener(){activeStream.current?.getTracks().forEach(t=>t.stop());activeStream.current=null;setStream(null);}
  function elegir(file:File|null){setMensaje('');setAnalisis(null);setConteo('');if(file&&(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880)){setFoto(null);setMensaje('Usa una imagen JPG, PNG o WebP de hasta 5 MB.');return;}setFoto(file);}
