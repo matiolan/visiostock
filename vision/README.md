@@ -32,7 +32,27 @@ En Verificación visual: elige producto, foto y clase, pulsa Analizar imagen, re
 
 ## Servidor y Vercel
 
-La aplicación Vite puede publicarse en Vercel con las variables de Supabase y `VITE_VISION_URL`. Este servicio Python con Ultralytics debe ejecutarse en un servidor independiente con memoria suficiente para el modelo; no se incorpora al frontend estático. Publica el servicio por HTTPS, configura `VISION_ORIGINS` con el dominio exacto de la web y establece el límite de petición en 5 MB en el proxy. Reinicia el servicio al cambiar el modelo o las variables. Usa un solo proceso por modelo para controlar la concurrencia o añade una cola al escalar.
+La aplicación Vite puede publicarse en Vercel con las variables de Supabase y `VITE_VISION_URL`. Este servicio Python con Ultralytics debe ejecutarse en un servidor independiente con memoria suficiente para el modelo; no se incorpora al frontend estático. Reinicia el servicio al cambiar el modelo o las variables. Usa un solo proceso por modelo para controlar la concurrencia o añade una cola al escalar.
+
+### Límites contra abuso
+
+- **Tamaño:** una petición de más de 5 MB (más 64 KB del formulario) recibe 413, aunque no declare `Content-Length`.
+- **Frecuencia:** `POST /analizar` admite `VISION_LIMITE_POR_MINUTO` análisis por minuto y por IP (20 por defecto); después responde 429 con `Retry-After`. El contador vive en memoria, por eso requiere un solo proceso, y detrás de un proxy necesita `--proxy-headers`.
+
+### Despliegue por HTTPS
+
+`vision/Dockerfile` construye el servicio con PyTorch para CPU. Los pesos no están en Git: coloca `vision/models/best.pt` antes de construir y sirve el contenedor únicamente a través de un proxy HTTPS, porque confía en sus cabeceras `X-Forwarded-*`.
+
+```powershell
+docker build -t visiostock-vision vision
+docker run -p 127.0.0.1:7860:7860 --env-file vision/.env visiostock-vision
+```
+
+Al tener la URL pública del servicio:
+
+1. Configura `VISION_ORIGINS` con el dominio exacto de la web.
+2. Agrega la URL al `connect-src` de la CSP en `web/vercel.json`; sin esto el navegador bloquea las llamadas.
+3. Define `VITE_VISION_URL` en Vercel y vuelve a publicar la web: el valor se fija al compilar.
 
 La cámara funciona en localhost o HTTPS y solicita permiso al usuario. Nunca se abre al cargar la portada. Las imágenes del historial se consultan mediante enlaces firmados de 60 segundos.
 

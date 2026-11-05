@@ -8,7 +8,7 @@ b=io.BytesIO();Image.new('RGB',(40,30),'white').save(b,format='JPEG');raw=b.getv
 PID='00000000-0000-0000-0000-000000000001'
 class VisionTests(unittest.TestCase):
  def setUp(self):
-  self.client=TestClient(mod.app);mod.MODELO=None;mod.CLASES=[]
+  self.client=TestClient(mod.app);mod.MODELO=None;mod.CLASES=[];mod.VISITAS.clear()
  def request(self,raw_image=raw,headers={'Authorization':'Bearer test'},clase='caja'):
   return self.client.post('/analizar',headers=headers,data={'producto':PID,'clase':clase},files={'imagen':('foto.jpg',raw_image,'image/jpeg')})
  def test_estado_sin_modelo(self):
@@ -54,4 +54,29 @@ class VisionTests(unittest.TestCase):
   try:
    with patch.object(mod,'autorizar'):self.assertEqual(self.request().status_code,429)
   finally:mod.LOCK.release()
+ def test_peticion_grande_declarada(self):
+  r=self.client.post('/analizar',headers={'Authorization':'Bearer test','Origin':'http://localhost:5173'},content=b'x'*(mod.MAX_PETICION+1))
+  self.assertEqual(r.status_code,413);self.assertEqual(r.headers['access-control-allow-origin'],'http://localhost:5173')
+ def test_peticion_grande_chunked(self):
+  def trozos():
+   for _ in range(6):yield b'x'*(1024*1024)
+  with patch.object(mod,'autorizar') as auth:r=self.client.post('/analizar',headers={'Authorization':'Bearer test'},content=trozos())
+  self.assertEqual(r.status_code,413);auth.assert_not_called()
+ def test_imagen_al_limite_pasa(self):
+  self.model();b=io.BytesIO();Image.new('RGB',(40,30),'white').save(b,format='PNG');pesada=b.getvalue()+b'\0'*(5*1024*1024-len(b.getvalue()))
+  with patch.object(mod,'autorizar'):self.assertEqual(self.request(raw_image=pesada).status_code,200)
+ def test_limite_frecuencia(self):
+  with patch.object(mod,'POR_MINUTO',2),patch.object(mod,'autorizar') as auth:
+   self.assertEqual(self.request().status_code,503);self.assertEqual(self.request().status_code,503)
+   r=self.request();self.assertEqual(r.status_code,429);self.assertGreater(int(r.headers['retry-after']),0);self.assertEqual(auth.call_count,2)
+ def test_frecuencia_es_por_ip(self):
+  with patch.object(mod,'POR_MINUTO',1),patch.object(mod,'autorizar'):
+   self.assertEqual(self.request().status_code,503);self.assertEqual(self.request().status_code,429)
+   otra=TestClient(mod.app,client=('203.0.113.9',5000))
+   self.assertEqual(otra.post('/analizar',headers={'Authorization':'Bearer test'},data={'producto':PID,'clase':'caja'},files={'imagen':('foto.jpg',raw,'image/jpeg')}).status_code,503)
+ def test_frecuencia_vence(self):
+  with patch.object(mod,'POR_MINUTO',1),patch.object(mod.time,'monotonic',side_effect=[100,120,161]):
+   self.assertEqual(mod.espera_frecuencia('ip'),0);self.assertEqual(mod.espera_frecuencia('ip'),41);self.assertEqual(mod.espera_frecuencia('ip'),0)
+ def test_estado_sin_limite(self):
+  with patch.object(mod,'POR_MINUTO',0):self.assertEqual(self.client.get('/estado').status_code,200)
 if __name__=='__main__':unittest.main(verbosity=2)

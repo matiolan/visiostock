@@ -52,6 +52,7 @@ flowchart LR
 | Storage | Bucket privado con límite de tamaño y tipos MIME; escritura solo en la ruta del propio usuario | `supabase/02_verificaciones.sql` |
 | Visión | Exige `Authorization: Bearer`; valida el token con Supabase Auth y consulta con RLS | `vision/app.py` |
 | Visión | CORS restringido a `VISION_ORIGINS`; límite de píxeles de imagen | `vision/app.py` |
+| Visión | Límite de 5 MB por petición y de análisis por minuto por IP | `vision/app.py` |
 | Repositorio | `.env` ignorado por git; gitleaks en el pipeline | `.gitignore`, SCRUM-65 |
 | Pipeline | CodeQL, npm audit, pip-audit y gitleaks en cada rama y PR; fallan ante hallazgos | SCRUM-65 |
 
@@ -64,7 +65,7 @@ flowchart LR
 | 3 | CodeQL `js/xss-through-dom` en la vista previa de evidencia | XSS desde el archivo elegido | SCRUM-68 | Corregido (canvas) |
 | 4 | `main` sin protección de rama (se puede hacer push directo) | Cambios sin revisión ni pipeline en verde | SCRUM-65 | Pendiente: activar en Settings → Branches |
 | 5 | `web/vercel.json` sin cabeceras de seguridad (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy) | Clickjacking y menor defensa ante XSS | SCRUM-68 | Pendiente |
-| 6 | Servicio de visión sin límite de tamaño de petición ni límite de frecuencia, y aún sin despliegue HTTPS | Abuso / denegación de servicio | SCRUM-67 | Pendiente |
+| 6 | Servicio de visión sin límite de tamaño de petición ni límite de frecuencia, y aún sin despliegue HTTPS | Abuso / denegación de servicio | SCRUM-67 | Límites corregidos (413 y 429). Imagen Docker lista; falta publicarla por HTTPS |
 | 7 | Variables de Supabase en Vercel y prueba de aislamiento entre empresas | Datos de ejemplo en producción / fuga entre empresas | SCRUM-62, SCRUM-69 | Pendiente |
 
 ## Cómo se mantiene
