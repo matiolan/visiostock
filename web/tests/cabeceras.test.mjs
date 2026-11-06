@@ -44,7 +44,7 @@ test('la CSP limita scripts y bloquea marcos, plugins y cambios de base', () => 
 test('connect-src admite orígenes exactos y valida el servicio de visión si está configurado', () => {
   const sources = directives.get('connect-src') ?? [];
   assert(sources.includes("'self'"));
-  assert(sources.includes('https://bkedmoshqaulckhvnclx.supabase.co'));
+  assert(sources.some((source) => source === 'https://bkedmoshqaulckhvnclx.supabase.co'));
   for (const source of sources.filter((value) => value !== "'self'")) {
     const url = new URL(source);
     assert(['https:', 'wss:'].includes(url.protocol), `Origen sin TLS: ${source}`);
@@ -55,6 +55,6 @@ test('connect-src admite orígenes exactos y valida el servicio de visión si es
     const url = new URL(visionUrl);
     assert.equal(url.protocol, 'https:', 'Visión debe publicarse por HTTPS');
     assert(!url.username && !url.password, 'La URL de visión debe ser pública');
-    assert(sources.includes(url.origin), 'Falta el origen de VITE_VISION_URL en connect-src');
+    assert(sources.some((source) => source === url.origin), 'Falta el origen de VITE_VISION_URL en connect-src');
   }
 });
