@@ -15,6 +15,17 @@ Desde `web/`: `npm ci`, copiar `.env.example` a `.env`, configurar las dos varia
 
 Si tu base ya está configurada, no repitas el esquema inicial. Ejecuta únicamente las migraciones que te falten. La migración `supabase/02_verificaciones.sql` ya fue aplicada al proyecto Supabase configurado durante la renovación.
 
+Orden de los scripts de `supabase/` (todos se ejecutan en el SQL Editor como postgres):
+
+| Script | Contenido | Estado en producción |
+| --- | --- | --- |
+| `esquema.sql` | Tablas, RLS y funciones base | Aplicado |
+| `02_verificaciones.sql` | Verificaciones con evidencia | Aplicado |
+| `03_endurecer_seguridad.sql` | Quita EXECUTE a `anon` (SCRUM-72) | Aplicado el 07/11/2026 |
+| `04_reporte_semanal.sql` | Reporte semanal automático con pg_cron, lunes 08:00 Lima (SCRUM-71) | Aplicado el 07/11/2026 |
+
+Pruebas con datos ficticios y `rollback` (no dejan datos): `prueba_aislamiento.sql` y `prueba_reporte_semanal.sql`.
+
 ## Publicar en Vercel
 
 La publicación actual está en la cuenta de Mia mediante Vercel Drop y usa el paquete compilado de esta web. Conserva este repositorio como fuente. Esa publicación no se actualiza automáticamente al hacer push: sube una nueva compilación al mismo proyecto de Vercel o usa Vercel CLI. Para conectar el repositorio personal matiolan/visiostock a Vercel se requiere la cuenta propietaria del repositorio.
