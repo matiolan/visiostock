@@ -66,8 +66,8 @@ flowchart LR
 | 5 | `web/vercel.json` sin cabeceras de seguridad (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy) | Clickjacking y menor defensa ante XSS | SCRUM-68 | Corregido (PR #9) |
 | 6 | Servicio de visión sin límite de tamaño de petición ni límite de frecuencia, y aún sin despliegue HTTPS | Abuso / denegación de servicio | SCRUM-67 | Pendiente |
 | 7 | Variables de Supabase en Vercel y prueba de aislamiento entre empresas | Datos de ejemplo en producción / fuga entre empresas | SCRUM-62, SCRUM-69 | Corregido: producción con Supabase real; prueba de aislamiento aprobada |
-| 8 | 4 funciones SECURITY DEFINER ejecutables sin sesión (`anon`): `esquema.sql` solo revocaba a `public` | Superficie expuesta sin autenticación | SCRUM-72 | Corregido: `supabase/03_endurecer_seguridad.sql` + prueba `vision/test_permisos_sql.py` en el pipeline |
-| 9 | Registro público de cuentas habilitado aunque la app no tiene formulario de registro | Creación de cuentas no autorizadas | SCRUM-72 | Corregir en Supabase → Authentication |
+| 8 | 4 funciones SECURITY DEFINER ejecutables sin sesión (`anon`): `esquema.sql` solo revocaba a `public` | Superficie expuesta sin autenticación | SCRUM-72 | Corregido: `supabase/03_endurecer_seguridad.sql` (aplicada en producción el 07/11/2026; Security Advisor pasó de 12 a 8 advertencias) + prueba `vision/test_permisos_sql.py` en el pipeline |
+| 9 | Registro público de cuentas habilitado aunque la app no tiene formulario de registro | Creación de cuentas no autorizadas | SCRUM-72 | Corregido el 07/11/2026: registro público deshabilitado; las cuentas se crean en Authentication → Users |
 | 10 | Protección de contraseñas filtradas (HaveIBeenPwned) desactivada | Contraseñas comprometidas | SCRUM-72 | Riesgo aceptado: requiere plan Pro |
 | 11 | 7 funciones ejecutables por usuarios con sesión (aviso del Security Advisor) | — | SCRUM-72 | Riesgo aceptado: son las RPC de la app y cada una valida empresa y rol |
 
