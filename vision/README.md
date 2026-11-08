@@ -34,6 +34,16 @@ En Verificación visual: elige producto, foto y clase, pulsa Analizar imagen, re
 
 Con una foto cargada, **Identificar por código** envía la imagen a `POST /identificar`, que lee códigos QR, DataMatrix, EAN/UPC, Code128, Code39, Code93 e ITF con zxing-cpp. La web busca el SKU leído entre los productos que el usuario puede ver (RLS) y lo selecciona; si el SKU existe en varios almacenes, pide elegir el correcto. El código puede contener solo el SKU, `SKU:ABC-1` o un enlace con `?sku=ABC-1`. Este endpoint no necesita el modelo YOLO, solo una sesión válida.
 
+### Manipulación incorrecta (HU-08)
+
+La vista **Manipulación** graba hasta 10 s con la cámara o carga un video MP4, MOV o WebM (máximo 5 MB y 30 s) y lo envía a `POST /manipulacion`. El servicio sigue cada caja con ByteTrack a unos 8 cuadros por segundo y avisa:
+
+- **Caída:** la caja baja más de 3 alturas de caja por segundo, o se pierde en el aire y reaparece mucho más abajo en menos de 1 s (pasa cuando el movimiento la vuelve borrosa).
+- **Golpe:** venía a más de 1,5 alturas por segundo y frena más de 20 alturas/s² entre dos cuadros.
+- **Apilamiento indebido:** más de `VISION_MAX_APILADO` cajas (4 por defecto) en una misma columna. En una foto, `POST /analizar` también lo informa.
+
+Medir en alturas de caja hace que los umbrales no dependan de la distancia de la cámara. Las alertas se registran como incidencias con `supabase/06_manipulacion.sql` y se revisan desde el historial; no se registran solas, el usuario confirma después de ver el resultado. Los umbrales se probaron con videos sintéticos y deben calibrarse con videos reales del almacén.
+
 ## Servidor y Vercel
 
 La aplicación Vite puede publicarse en Vercel con las variables de Supabase y `VITE_VISION_URL`. Este servicio Python con Ultralytics debe ejecutarse en un servidor independiente con memoria suficiente para el modelo; no se incorpora al frontend estático. Reinicia el servicio al cambiar el modelo o las variables. Usa un solo proceso por modelo para controlar la concurrencia o añade una cola al escalar.

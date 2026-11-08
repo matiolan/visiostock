@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 import zxingcpp
 import app as mod
+import manipulacion as mod_m
 b=io.BytesIO();Image.new('RGB',(40,30),'white').save(b,format='JPEG');raw=b.getvalue()
 PID='00000000-0000-0000-0000-000000000001'
 class VisionTests(unittest.TestCase):
@@ -108,4 +109,35 @@ class VisionTests(unittest.TestCase):
   with patch.dict(os.environ,{'SUPABASE_URL':'https://example.supabase.co','SUPABASE_PUBLISHABLE_KEY':'public'}),patch.object(mod.httpx,'Client') as client:
    get=client.return_value.__enter__.return_value.get;get.return_value.status_code=200
    mod.autorizar('token');self.assertEqual(get.call_count,1)
+ def video(self,contenido=b'\x00\x00\x00\x18ftypisom'+b'\x00'*64,headers={'Authorization':'Bearer test'},clase='caja'):
+  return self.client.post('/manipulacion',headers=headers,data={'producto':PID,'clase':clase},files={'video':('clip.mp4',contenido,'video/mp4')})
+ def test_manipulacion_sin_sesion(self):
+  self.assertEqual(self.video(headers={}).status_code,401)
+ def test_manipulacion_sin_modelo(self):
+  with patch.object(mod,'autorizar'):self.assertEqual(self.video().status_code,503)
+ def test_manipulacion_rechaza_lo_que_no_es_video(self):
+  self.model()
+  with patch.object(mod,'autorizar'):self.assertEqual(self.video(contenido=raw).status_code,415)
+ def test_manipulacion_video_largo(self):
+  self.model()
+  with patch.object(mod,'autorizar'),patch.object(mod,'propiedades_video',return_value=(30,45.0)),patch.object(mod,'analizar_video') as a:
+   r=self.video()
+  self.assertEqual(r.status_code,422);a.assert_not_called()
+ def test_manipulacion_video_ilegible(self):
+  self.model()
+  with patch.object(mod,'autorizar'),patch.object(mod,'propiedades_video',return_value=(0,0)):self.assertEqual(self.video().status_code,422)
+ def test_manipulacion_devuelve_alertas(self):
+  model=self.model()
+  with patch.object(mod,'autorizar') as auth,patch.object(mod,'propiedades_video',return_value=(30,6.0)),patch.object(mod,'analizar_video',return_value=[mod_m.Alerta('caida',1.25,.9,'bajó rápido')]) as a:
+   r=self.video(contenido=b'\x1a\x45\xdf\xa3'+b'\x00'*64)
+  self.assertEqual(r.status_code,200);self.assertEqual(r.json()['alertas'],[{'tipo':'caida','segundo':1.25,'confianza':.9,'detalle':'bajó rápido'}]);self.assertEqual(r.json()['duracion'],6.0)
+  auth.assert_called_once_with('test',PID);self.assertIs(a.call_args.args[0],model);self.assertEqual(a.call_args.args[2],[0]);self.assertTrue(a.call_args.args[1].endswith('.webm'))
+  self.assertFalse(Path(a.call_args.args[1]).exists())
+ def test_manipulacion_clase_ajena(self):
+  self.model()
+  with patch.object(mod,'autorizar'):self.assertEqual(self.video(clase='tomatodo').status_code,422)
+ def test_analizar_informa_apilamiento(self):
+  model=self.model();res=model.predict.return_value[0];res.boxes.xyxy.tolist.return_value=[[0,y,10,y+10] for y in range(0,60,10)];res.boxes.conf.tolist.return_value=[.9]*6
+  with patch.object(mod,'autorizar'):r=self.request()
+  self.assertEqual(r.json()['apilamiento'],{'altura':6,'maximo':4,'alerta':True})
 if __name__=='__main__':unittest.main(verbosity=2)

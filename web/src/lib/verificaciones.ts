@@ -1,6 +1,6 @@
 import { supabaseBrowser } from './supabase';
 export type Verificacion = {id:string;producto_id:string;stock_registrado:number;conteo:number;diferencia:number;metodo:'manual'|'asistido';camara_id?:string|null;modelo:string|null;clase:string|null;evidencia:string;nota:string;creado_en:string;revisado_en:string|null;revision:string};
-export type Analisis = {conteo:number;modelo:string;clase:string;cajas:{x1:number;y1:number;x2:number;y2:number;confianza:number}[];ancho:number;alto:number};
+export type Analisis = {conteo:number;modelo:string;clase:string;cajas:{x1:number;y1:number;x2:number;y2:number;confianza:number}[];ancho:number;alto:number;apilamiento?:{altura:number;maximo:number;alerta:boolean}};
 export const visionURL = (import.meta.env.VITE_VISION_URL || '').replace(/\/$/,'');
 async function respuesta(r: Response) { const body=await r.json(); if(!r.ok) throw new Error(typeof body.detail==='string'?body.detail:'El servicio de visión no pudo procesar la solicitud.'); return body; }
 export async function estadoVision():Promise<{listo:boolean;clases:string[];mensaje:string}> {

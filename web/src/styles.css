@@ -16,3 +16,9 @@ textarea{font:inherit;width:100%;min-height:95px;padding:12px;border:1px solid #
 .camera-wall video,.camera-off{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#142640}
 .camera-off{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#c9d4e3;font-size:12px;text-align:center;padding:15px;box-sizing:border-box}
 .camera-wall figcaption{display:flex;align-items:center;gap:6px;padding:10px 12px;font-size:12px;color:#40546e}
+
+/* HU-08: alertas de manipulación */
+.incident-list{list-style:none;padding:0;margin:18px 0;display:grid;gap:10px}
+.incident-list li{display:grid;grid-template-columns:auto auto 1fr auto;gap:10px;align-items:center;font-size:12px;color:#40546e;background:#fff8ec;border:1px solid #f3dfbc;border-radius:8px;padding:10px 12px}
+.incident-list small{color:#8b9ab0}
+.stack-warning{display:flex;gap:10px;align-items:flex-start;background:#fff8ec;border:1px solid #f3dfbc;border-radius:8px;padding:12px;font-size:12px;line-height:1.7;color:#7a5520}

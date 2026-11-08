@@ -5,6 +5,7 @@ Requiere pesos locales de un detector validado, nunca descarga un modelo genéri
 """
 import io
 import os
+import tempfile
 import threading
 import time
 import warnings
@@ -21,6 +22,7 @@ from fastapi.responses import JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from codigos import leer_codigos
+from manipulacion import Deteccion, Umbrales, altura_maxima_pila, analizar_video, propiedades_video
 
 load_dotenv(Path(__file__).with_name('.env'))
 MODELO = None
@@ -31,7 +33,8 @@ Image.MAX_IMAGE_PIXELS = 20_000_000
 MAX_PETICION = 5 * 1024 * 1024 + 64 * 1024  # imagen de 5 MB más los campos del formulario
 POR_MINUTO = int(os.getenv('VISION_LIMITE_POR_MINUTO', '20'))
 VISITAS: dict[str, deque] = {}
-LIMITADAS = {'/analizar', '/identificar'}  # rutas que consultan Supabase y usan CPU
+LIMITADAS = {'/analizar', '/identificar', '/manipulacion'}  # rutas que consultan Supabase y usan CPU
+MAX_SEGUNDOS_VIDEO = 30
 
 
 def espera_frecuencia(ip: str) -> int:
@@ -203,10 +206,61 @@ def analizar(imagen: UploadFile = File(...), producto: UUID = Form(...), clase: 
             for xy, confianza in zip(resultado.boxes.xyxy.tolist(), resultado.boxes.conf.tolist()):
                 x1, y1, x2, y2 = xy
                 cajas.append({'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'confianza': float(confianza)})
+        # HU-08: en una foto solo se puede juzgar el apilamiento; caídas y golpes requieren video.
+        altura = altura_maxima_pila([Deteccion((c['x1'], c['y1'], c['x2'], c['y2']), c['confianza']) for c in cajas])
+        maximo = Umbrales().max_apilado
         return {'conteo': len(cajas), 'cajas': cajas, 'clase': clase,
                 'modelo': os.getenv('VISION_MODELO_NOMBRE', 'Detector del almacén')[:160],
-                'ancho': imagen_rgb.width, 'alto': imagen_rgb.height}
+                'ancho': imagen_rgb.width, 'alto': imagen_rgb.height,
+                'apilamiento': {'altura': altura, 'maximo': maximo, 'alerta': altura > maximo}}
     except Exception:
         raise HTTPException(503, 'No se pudo completar el análisis con el modelo instalado.') from None
     finally:
         LOCK.release()
+
+
+def es_video(raw: bytes) -> str | None:
+    """Devuelve la extensión si los primeros bytes son de un MP4/MOV o WebM."""
+    if raw[4:8] == b'ftyp':
+        return '.mp4'
+    if raw[:4] == b'\x1a\x45\xdf\xa3':
+        return '.webm'
+    return None
+
+
+@app.post('/manipulacion')
+def manipulacion(video: UploadFile = File(...), producto: UUID = Form(...), clase: str = Form(...),
+                 authorization: str = Header(default='')):
+    """HU-08: sigue las cajas de un video corto y avisa caídas, golpes y apilamiento indebido."""
+    autorizar(token_de(authorization), str(producto))
+    if MODELO is None:
+        raise HTTPException(503, MOTIVO)
+    if clase not in CLASES:
+        raise HTTPException(422, 'Selecciona una clase habilitada en el modelo.')
+    raw = video.file.read(5 * 1024 * 1024 + 1)
+    if not raw or len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(413, 'El video debe tener entre 1 byte y 5 MB.')
+    extension = es_video(raw)
+    if not extension:
+        raise HTTPException(415, 'Solo se admiten videos MP4, MOV o WebM.')
+    ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
+    if not LOCK.acquire(blocking=False):
+        raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
+    archivo = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
+    try:
+        with archivo:
+            archivo.write(raw)
+        fps, duracion = propiedades_video(archivo.name)
+        if not fps:
+            raise HTTPException(422, 'No se pudo leer el video.')
+        if duracion > MAX_SEGUNDOS_VIDEO:
+            raise HTTPException(422, f'El video debe durar como máximo {MAX_SEGUNDOS_VIDEO} segundos.')
+        try:
+            alertas = analizar_video(MODELO, archivo.name, ids, .5, fps)
+        except Exception:
+            raise HTTPException(503, 'No se pudo completar el análisis del video.') from None
+        return {'alertas': [a.json() for a in alertas], 'duracion': round(duracion, 2), 'clase': clase,
+                'modelo': os.getenv('VISION_MODELO_NOMBRE', 'Detector del almacén')[:160]}
+    finally:
+        LOCK.release()
+        os.unlink(archivo.name)
