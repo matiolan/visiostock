@@ -15,6 +15,8 @@ Desde `web/`: `npm ci`, copiar `.env.example` a `.env`, configurar las dos varia
 
 Si tu base ya está configurada, no repitas el esquema inicial. Ejecuta únicamente las migraciones que te falten. La migración `supabase/02_verificaciones.sql` ya fue aplicada al proyecto Supabase configurado durante la renovación.
 
+`supabase/05_camaras_zonas.sql` (HU-17) agrega zonas por almacén y cámaras por zona. La vista **Cámaras y zonas** permite registrarlas, activarlas o desactivarlas y verlas en vivo a la vez; en Verificación visual se puede elegir la cámara del almacén y queda guardada con la evidencia. El navegador identifica cada cámara por su nombre, así que una cámara solo se abre desde el equipo al que está conectada.
+
 ## Publicar en Vercel
 
 La publicación actual está en la cuenta de Mia mediante Vercel Drop y usa el paquete compilado de esta web. Conserva este repositorio como fuente. Esa publicación no se actualiza automáticamente al hacer push: sube una nueva compilación al mismo proyecto de Vercel o usa Vercel CLI. Para conectar el repositorio personal matiolan/visiostock a Vercel se requiere la cuenta propietaria del repositorio.

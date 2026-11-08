@@ -1,0 +1,11 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {buscarDispositivo as buscar,camarasDelAlmacen as delAlmacen,ubicacion} from '../src/lib/dispositivos.ts';
+const equipo=[{deviceId:'a1',label:'Integrated Camera (04f2:b6d9)',kind:'videoinput'},{deviceId:'b2',label:'Logitech C920',kind:'videoinput'},{deviceId:'m1',label:'Logitech C920',kind:'audioinput'}];
+const zonas=[{id:'z1',empresa_id:'e',almacen_id:'alm1',nombre:'Recepción'},{id:'z2',empresa_id:'e',almacen_id:'alm1',nombre:'Despacho'},{id:'z3',empresa_id:'e',almacen_id:'alm2',nombre:'Pasillo A'}];
+const camaras=[{id:'c1',empresa_id:'e',zona_id:'z1',nombre:'Puerta',dispositivo:'Logitech C920',activa:true},{id:'c2',empresa_id:'e',zona_id:'z2',nombre:'Andén',dispositivo:'',activa:false},{id:'c3',empresa_id:'e',zona_id:'z3',nombre:'Rack',dispositivo:'',activa:true}];
+test('encuentra la cámara por su nombre sin distinguir mayúsculas',()=>assert.equal(buscar(equipo,' logitech c920 ')?.deviceId,'b2'));
+test('ignora micrófonos con el mismo nombre',()=>assert.equal(buscar(equipo.slice(2),'Logitech C920'),null));
+test('sin nombre guardado o desconectada no devuelve nada',()=>{assert.equal(buscar(equipo,''),null);assert.equal(buscar(equipo,'Otra'),null);});
+test('lista solo las cámaras activas del almacén',()=>{assert.deepEqual(delAlmacen(camaras,zonas,'alm1').map(c=>c.id),['c1']);assert.deepEqual(delAlmacen(camaras,zonas,'alm2').map(c=>c.id),['c3']);assert.deepEqual(delAlmacen(camaras,zonas,'otro'),[]);});
+test('describe almacén, zona y cámara',()=>{assert.equal(ubicacion(camaras[0],zonas,[{id:'alm1',nombre:'Central'}]),'Central · Recepción · Puerta');assert.equal(ubicacion(undefined,zonas,[]),'');});
