@@ -12,6 +12,12 @@ export async function analizarImagen(file:File,producto:string,clase:string):Pro
  const form=new FormData();form.append('imagen',file);form.append('producto',producto);form.append('clase',clase);
  return respuesta(await fetch(visionURL+'/analizar',{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`},body:form,signal:AbortSignal.timeout(120000)}));
 }
+export type Codigo={tipo:string;texto:string};
+export async function identificarCodigos(file:File):Promise<Codigo[]>{
+ const {data:{session}}=await supabaseBrowser().auth.getSession();if(!session)throw new Error('Inicia sesión nuevamente.');
+ const form=new FormData();form.append('imagen',file);
+ return (await respuesta(await fetch(visionURL+'/identificar',{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`},body:form,signal:AbortSignal.timeout(30000)}))).codigos;
+}
 export async function listarVerificaciones():Promise<Verificacion[]>{
  const {data,error}=await supabaseBrowser().from('vs_verificaciones').select('*').order('creado_en',{ascending:false}).limit(500);
  if(error)throw new Error('No se pudo cargar el historial. Si es tu primera vez, ejecuta supabase/02_verificaciones.sql en Supabase.');return data||[];

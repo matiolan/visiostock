@@ -1,4 +1,4 @@
-"""Conteo de una fotografía. No modifica stock ni usa una service_role.
+"""Conteo de una fotografía y lectura de su código QR o de barras. No modifica stock ni usa una service_role.
 
 El token de Supabase se valida con Auth y se usa para consultar el producto con RLS.
 Requiere pesos locales de un detector validado, nunca descarga un modelo genérico.
@@ -20,6 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from codigos import leer_codigos
+
 load_dotenv(Path(__file__).with_name('.env'))
 MODELO = None
 CLASES: list[str] = []
@@ -29,6 +31,7 @@ Image.MAX_IMAGE_PIXELS = 20_000_000
 MAX_PETICION = 5 * 1024 * 1024 + 64 * 1024  # imagen de 5 MB más los campos del formulario
 POR_MINUTO = int(os.getenv('VISION_LIMITE_POR_MINUTO', '20'))
 VISITAS: dict[str, deque] = {}
+LIMITADAS = {'/analizar', '/identificar'}  # rutas que consultan Supabase y usan CPU
 
 
 def espera_frecuencia(ip: str) -> int:
@@ -59,7 +62,7 @@ class Protecciones:
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
-        if scope['method'] == 'POST' and scope['path'] == '/analizar':
+        if scope['method'] == 'POST' and scope['path'] in LIMITADAS:
             espera = espera_frecuencia((scope.get('client') or ('desconocido',))[0])
             if espera:
                 respuesta = JSONResponse({'detail': 'Demasiados análisis seguidos. Inténtalo en un minuto.'}, 429,
@@ -107,7 +110,8 @@ def abrir_imagen(raw: bytes):
         raise HTTPException(422, 'La imagen no es válida o su resolución es demasiado grande.') from None
 
 
-def autorizar(token: str, producto: str):
+def autorizar(token: str, producto: str | None = None):
+    """Valida la sesión y, si se indica un producto, que RLS permita verlo."""
     url = os.getenv('SUPABASE_URL', '').rstrip('/')
     key = os.getenv('SUPABASE_PUBLISHABLE_KEY', '')
     if not url or not key:
@@ -118,6 +122,8 @@ def autorizar(token: str, producto: str):
             user = client.get(url + '/auth/v1/user', headers=headers)
             if user.status_code != 200:
                 raise HTTPException(401, 'Tu sesión no es válida. Inicia sesión de nuevo.')
+            if producto is None:
+                return
             # RLS verifica el acceso a la empresa; no se acepta empresa del formulario.
             result = client.get(url + '/rest/v1/vs_productos', headers=headers,
                                 params={'select': 'id', 'id': f'eq.{producto}'})
@@ -161,12 +167,27 @@ def estado():
     return {'listo': MODELO is not None, 'clases': CLASES, 'mensaje': MOTIVO}
 
 
+def token_de(authorization: str) -> str:
+    if not authorization.startswith('Bearer ') or not authorization[7:].strip():
+        raise HTTPException(401, 'Falta la sesión de acceso.')
+    return authorization[7:]
+
+
+@app.post('/identificar')
+def identificar(imagen: UploadFile = File(...), authorization: str = Header(default='')):
+    """HU-07: lee los códigos QR o de barras de la foto para elegir el producto por su SKU."""
+    autorizar(token_de(authorization))
+    imagen_rgb = abrir_imagen(imagen.file.read(5 * 1024 * 1024 + 1))
+    try:
+        return {'codigos': leer_codigos(imagen_rgb)}
+    except Exception:
+        raise HTTPException(503, 'No se pudo leer el código de la imagen.') from None
+
+
 @app.post('/analizar')
 def analizar(imagen: UploadFile = File(...), producto: UUID = Form(...), clase: str = Form(...),
              authorization: str = Header(default='')):
-    if not authorization.startswith('Bearer ') or not authorization[7:].strip():
-        raise HTTPException(401, 'Falta la sesión de acceso.')
-    autorizar(authorization[7:], str(producto))
+    autorizar(token_de(authorization), str(producto))
     if MODELO is None:
         raise HTTPException(503, MOTIVO)
     if clase not in CLASES:

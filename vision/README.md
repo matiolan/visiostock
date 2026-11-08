@@ -30,6 +30,10 @@ En el `.env` de la web agrega `VITE_VISION_URL=http://127.0.0.1:8000` y reinicia
 
 En Verificación visual: elige producto, foto y clase, pulsa Analizar imagen, revisa las cajas y guarda. Si corriges la cantidad, el registro pasa a manual. Solo se cuenta la clase elegida, no todas las referencias mezcladas en una foto. Una fotografía parcial no permite comparar el stock total de un almacén.
 
+### Identificar el producto por código (HU-07)
+
+Con una foto cargada, **Identificar por código** envía la imagen a `POST /identificar`, que lee códigos QR, DataMatrix, EAN/UPC, Code128, Code39, Code93 e ITF con zxing-cpp. La web busca el SKU leído entre los productos que el usuario puede ver (RLS) y lo selecciona; si el SKU existe en varios almacenes, pide elegir el correcto. El código puede contener solo el SKU, `SKU:ABC-1` o un enlace con `?sku=ABC-1`. Este endpoint no necesita el modelo YOLO, solo una sesión válida.
+
 ## Servidor y Vercel
 
 La aplicación Vite puede publicarse en Vercel con las variables de Supabase y `VITE_VISION_URL`. Este servicio Python con Ultralytics debe ejecutarse en un servidor independiente con memoria suficiente para el modelo; no se incorpora al frontend estático. Reinicia el servicio al cambiar el modelo o las variables. Usa un solo proceso por modelo para controlar la concurrencia o añade una cola al escalar.

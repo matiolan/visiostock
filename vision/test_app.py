@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from PIL import Image
+import zxingcpp
 import app as mod
 b=io.BytesIO();Image.new('RGB',(40,30),'white').save(b,format='JPEG');raw=b.getvalue()
 PID='00000000-0000-0000-0000-000000000001'
@@ -79,4 +80,32 @@ class VisionTests(unittest.TestCase):
    self.assertEqual(mod.espera_frecuencia('ip'),0);self.assertEqual(mod.espera_frecuencia('ip'),41);self.assertEqual(mod.espera_frecuencia('ip'),0)
  def test_estado_sin_limite(self):
   with patch.object(mod,'POR_MINUTO',0):self.assertEqual(self.client.get('/estado').status_code,200)
+ def codigo(self,texto,formato,escala=4):
+  m=memoryview(zxingcpp.create_barcode(texto,formato).to_image(scale=escala));Image.frombytes('L',(m.shape[1],m.shape[0]),m.tobytes()).convert('RGB').save(b:=io.BytesIO(),format='PNG');return b.getvalue()
+ def identificar(self,raw_image,headers={'Authorization':'Bearer test'}):
+  return self.client.post('/identificar',headers=headers,files={'imagen':('codigo.png',raw_image,'image/png')})
+ def test_identificar_qr(self):
+  with patch.object(mod,'autorizar') as auth:r=self.identificar(self.codigo('CAJA-001',zxingcpp.BarcodeFormat.QRCode))
+  self.assertEqual(r.status_code,200);self.assertEqual(r.json()['codigos'],[{'tipo':'QR','texto':'CAJA-001'}]);auth.assert_called_once_with('test')
+ def test_identificar_barras(self):
+  with patch.object(mod,'autorizar'):
+   self.assertEqual(self.identificar(self.codigo('LALI-TOM-750',zxingcpp.BarcodeFormat.Code128,3)).json()['codigos'],[{'tipo':'Code128','texto':'LALI-TOM-750'}])
+   self.assertEqual(self.identificar(self.codigo('7751234567892',zxingcpp.BarcodeFormat.EAN13,3)).json()['codigos'],[{'tipo':'EAN-13','texto':'7751234567892'}])
+ def test_identificar_sin_codigo(self):
+  with patch.object(mod,'autorizar'):r=self.identificar(raw)
+  self.assertEqual(r.status_code,200);self.assertEqual(r.json()['codigos'],[])
+ def test_identificar_no_requiere_modelo(self):
+  self.assertIsNone(mod.MODELO)
+  with patch.object(mod,'autorizar'):self.assertEqual(self.identificar(raw).status_code,200)
+ def test_identificar_sin_sesion(self):
+  self.assertEqual(self.identificar(raw,headers={}).status_code,401)
+ def test_identificar_archivo_falso(self):
+  with patch.object(mod,'autorizar'):self.assertEqual(self.identificar(b'no-es-imagen').status_code,422)
+ def test_identificar_con_limite_frecuencia(self):
+  with patch.object(mod,'POR_MINUTO',1),patch.object(mod,'autorizar'):
+   self.assertEqual(self.identificar(raw).status_code,200);self.assertEqual(self.identificar(raw).status_code,429)
+ def test_sesion_sin_producto_no_consulta_rls(self):
+  with patch.dict(os.environ,{'SUPABASE_URL':'https://example.supabase.co','SUPABASE_PUBLISHABLE_KEY':'public'}),patch.object(mod.httpx,'Client') as client:
+   get=client.return_value.__enter__.return_value.get;get.return_value.status_code=200
+   mod.autorizar('token');self.assertEqual(get.call_count,1)
 if __name__=='__main__':unittest.main(verbosity=2)

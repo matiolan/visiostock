@@ -1,4 +1,6 @@
 *
-!app.py
+!*.py
 !requirements.txt
 !models/best.pt
+test_*.py
+grabar.py
