@@ -34,15 +34,41 @@ En Verificación visual: elige producto, foto y clase, pulsa Analizar imagen, re
 
 Con una foto cargada, **Identificar por código** envía la imagen a `POST /identificar`, que lee códigos QR, DataMatrix, EAN/UPC, Code128, Code39, Code93 e ITF con zxing-cpp. La web busca el SKU leído entre los productos que el usuario puede ver (RLS) y lo selecciona; si el SKU existe en varios almacenes, pide elegir el correcto. El código puede contener solo el SKU, `SKU:ABC-1` o un enlace con `?sku=ABC-1`. Este endpoint no necesita el modelo YOLO, solo una sesión válida.
 
+**Movimientos por video.** En **Movimientos → Registrar movimientos por video** se graba hasta 10 s o se carga un video (máx. 5 MB y 30 s) y `POST /movimientos` sigue las cajas con ByteTrack. Cada caja que cruza la línea (arriba → abajo = entrada) es un movimiento, y el SKU se lee del recorte de esa caja. Si el código no se lee, el movimiento queda **NO IDENTIFICADO** con la imagen de la caja (`supabase/05_movimientos_sin_sku.sql`) y no cambia el stock hasta que alguien asigna el producto.
+
+Para medir la tasa de lectura (criterio ≥ 90 %) con un video controlado y un CSV `orden,sentido,sku`:
+
+```powershell
+python vision/evaluar_sku.py video.mp4 esperado.csv --modelo vision/models/best.pt
+```
+
+Con un video sintético de 50 cajas (QR y Code128, 3 sin código legible) el resultado fue 50/50. Falta medirlo con cajas reales.
+
+### Cámaras IP y zonas (HU-17)
+
+En **Cámaras y zonas** se registran cámaras del equipo o cámaras IP con su URL RTSP y su línea virtual. `POST /camaras/probar` recibe hasta 4 cámaras y atiende cada una en su propio hilo con su copia del modelo:
+
+- **Chequeo** (`procesar: false`): abre la URL y lee unos segundos. La web lo repite cada 15 s mientras **Monitorear cámaras IP** está activo y guarda la señal con `vs_senal_camara`. Una cámara con más de 60 s sin señal queda **desconectada**, aparece una alerta (y una notificación del navegador si se permitió) y su zona queda **sin monitoreo** si no tiene otra cámara IP en línea.
+- **Procesamiento simultáneo** (`procesar: true`): detecta, sigue y cuenta cruces en cada cámara durante 10 s y devuelve los FPS de cada una. Los movimientos se atribuyen a la cámara (y por lo tanto a su zona) que los vio. Con 4 transmisiones RTSP simuladas (mediamtx) en un CPU de escritorio, a resolución de inferencia 416, cada cámara procesó entre 11,4 y 13,6 FPS; a 640 no llegaba a 10.
+
+Solo se aceptan URLs `rtsp://` o `rtsps://`. El servicio se conecta a la dirección que indique el usuario autenticado, así que debe ejecutarse en la red del almacén y no tener acceso a servicios internos sensibles. Usa en cada cámara una cuenta que solo pueda ver video.
 ### Manipulación incorrecta (HU-08)
 
 La vista **Manipulación** graba hasta 10 s con la cámara o carga un video MP4, MOV o WebM (máximo 5 MB y 30 s) y lo envía a `POST /manipulacion`. El servicio sigue cada caja con ByteTrack a unos 8 cuadros por segundo y avisa:
 
-- **Caída:** la caja baja más de 3 alturas de caja por segundo, o se pierde en el aire y reaparece mucho más abajo en menos de 1 s (pasa cuando el movimiento la vuelve borrosa).
-- **Golpe:** venía a más de 1,5 alturas por segundo y frena más de 20 alturas/s² entre dos cuadros.
+- **Caída:** la caja baja más de 3 alturas de caja por segundo, o se pierde en el aire y reaparece al menos 1,5 alturas más abajo en menos de 2 s (pasa cuando el movimiento la vuelve borrosa o queda tapada en el suelo).
+- **Golpe:** venía a más de 1,5 alturas por segundo y frena más de 15 alturas/s² entre dos cuadros.
 - **Apilamiento indebido:** más de `VISION_MAX_APILADO` cajas (4 por defecto) en una misma columna. En una foto, `POST /analizar` también lo informa.
 
-Medir en alturas de caja hace que los umbrales no dependan de la distancia de la cámara. Las alertas se registran como incidencias con `supabase/06_manipulacion.sql` y se revisan desde el historial; no se registran solas, el usuario confirma después de ver el resultado. Los umbrales se probaron con videos sintéticos y deben calibrarse con videos reales del almacén.
+Cada alerta trae la captura del cuadro con la caja marcada en rojo. Al registrarla, la captura se sube como evidencia privada y queda en la incidencia (`supabase/07_manipulacion.sql`); se revisa desde el historial. Medir en alturas de caja hace que los umbrales no dependan de la distancia de la cámara.
+
+Para medir la precisión (criterio: ≥ 75 % de eventos detectados con ≤ 15 % de falsos positivos) con clips etiquetados en un CSV `archivo,esperado`:
+
+```powershell
+python vision/evaluar_manipulacion.py clips/clips.csv --modelo vision/models/best.pt
+```
+
+Con 20 eventos sintéticos (8 caídas, 6 golpes, 6 pilas) y 20 movimientos normales se detectó el 90 % (18/20) con 0 % de falsos positivos. Falta repetir la medición con videos reales del almacén y ajustar los umbrales si hace falta.
 
 ## Servidor y Vercel
 

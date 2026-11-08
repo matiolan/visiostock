@@ -1,6 +1,12 @@
+import base64
+import io
 import unittest
 from types import SimpleNamespace
+
+import numpy as np
+from PIL import Image
 from unittest.mock import MagicMock
+from evaluar_manipulacion import resumir
 from manipulacion import Deteccion, DetectorManipulacion, Umbrales, altura_maxima_pila, analizar_video
 
 
@@ -48,6 +54,18 @@ class Manipulacion(unittest.TestCase):
         self.assertEqual([a.tipo for a in alertas], ['caida'])
         self.assertIn('6.0 alturas', alertas[0].detalle)
 
+    def test_caida_que_queda_oculta_en_el_suelo(self):
+        # se pierde al caer y el detector tarda 1.5 s en volver a verla, 3 alturas más abajo
+        cuadros = [(0, [caja(100, 50, track=1)]), (.2, [caja(100, 60, track=1)]), (.4, []), (1.9, [caja(110, 210, track=2)])]
+        self.assertEqual([a.tipo for t, ds in cuadros for a in self.d.actualizar(t, ds)], ['caida'])
+
+    def test_resumen_de_precision(self):
+        filas = [{'esperado': 'caida', 'alertas': ['caida']}, {'esperado': 'golpe', 'alertas': []},
+                 {'esperado': 'apilamiento', 'alertas': ['apilamiento', 'caida']}, {'esperado': 'normal', 'alertas': []},
+                 {'esperado': 'normal', 'alertas': ['golpe']}]
+        r = resumir(filas)
+        self.assertEqual((r['detectados'], r['eventos'], r['falsos'], r['normales']), (2, 3, 1, 2))
+
     def test_caja_que_sale_y_entra_lejos_no_es_caida(self):
         cuadros = [(0, [caja(100, 50, track=1)]), (.5, []), (1.0, [caja(500, 350, track=2)]),  # en otra columna
                    (3.0, [caja(100, 400, track=3)])]  # demasiado tarde
@@ -83,13 +101,18 @@ class Manipulacion(unittest.TestCase):
             boxes.xyxy.tolist.return_value = [[100, y, 150, y + 50]]
             boxes.conf.tolist.return_value = [.9]
             boxes.id.int.return_value.tolist.return_value = [7]
-            return SimpleNamespace(boxes=boxes)
+            return SimpleNamespace(boxes=boxes, orig_img=np.full((400, 300, 3), 200, np.uint8))
         modelo = MagicMock()
         modelo.track.return_value = iter([resultado(100), resultado(150), resultado(200)])
         alertas = analizar_video(modelo, 'video.mp4', [0], .5, fps=30)
         self.assertEqual(modelo.track.call_args.kwargs['vid_stride'], 4)  # ~8 cuadros por segundo
         self.assertFalse(modelo.track.call_args.kwargs['persist'])
         self.assertEqual([(a.tipo, round(a.segundo, 3)) for a in alertas], [('caida', .133)])
+        # la evidencia es el cuadro con la caja que cayó marcada en rojo
+        evidencia = Image.open(io.BytesIO(base64.b64decode(alertas[0].imagen))).convert('RGB')
+        self.assertEqual(evidencia.size, (300, 400))
+        r, g, b = evidencia.getpixel((100, 175))  # borde izquierdo de la caja en y=150..200
+        self.assertTrue(r > 180 and g < 90 and b < 90, (r, g, b))
 
 
 if __name__ == '__main__':

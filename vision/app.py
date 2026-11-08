@@ -5,7 +5,6 @@ Requiere pesos locales de un detector validado, nunca descarga un modelo genéri
 """
 import io
 import os
-import tempfile
 import threading
 import time
 import warnings
@@ -17,12 +16,16 @@ from uuid import UUID
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from camaras_ip import MAX_CAMARAS, probar_camaras, url_valida
 from codigos import leer_codigos
-from manipulacion import Deteccion, Umbrales, altura_maxima_pila, analizar_video, propiedades_video
+from manipulacion import Deteccion, Umbrales, altura_maxima_pila, analizar_video
+from movimientos import analizar_movimientos
+from videos import extension_video, propiedades_video, video_temporal
 
 load_dotenv(Path(__file__).with_name('.env'))
 MODELO = None
@@ -33,7 +36,7 @@ Image.MAX_IMAGE_PIXELS = 20_000_000
 MAX_PETICION = 5 * 1024 * 1024 + 64 * 1024  # imagen de 5 MB más los campos del formulario
 POR_MINUTO = int(os.getenv('VISION_LIMITE_POR_MINUTO', '20'))
 VISITAS: dict[str, deque] = {}
-LIMITADAS = {'/analizar', '/identificar', '/manipulacion'}  # rutas que consultan Supabase y usan CPU
+LIMITADAS = {'/analizar', '/identificar', '/movimientos', '/manipulacion', '/camaras/probar'}  # rutas que consultan Supabase y usan CPU
 MAX_SEGUNDOS_VIDEO = 30
 
 
@@ -152,6 +155,7 @@ async def lifespan(app):
             if modelo.task != 'detect':
                 raise ValueError('Se requiere un detector')
             MODELO, CLASES = modelo, permitidas
+            MODELO.ruta = str(ruta)  # las cámaras IP cargan su propia copia en cada hilo
             MOTIVO = 'Modelo disponible. Verifica que la clase elegida corresponda al producto.'
         except Exception:
             MOTIVO = 'No se pudo cargar el modelo o sus clases. Revisa la configuración del servicio.'
@@ -219,48 +223,108 @@ def analizar(imagen: UploadFile = File(...), producto: UUID = Form(...), clase: 
         LOCK.release()
 
 
-def es_video(raw: bytes) -> str | None:
-    """Devuelve la extensión si los primeros bytes son de un MP4/MOV o WebM."""
-    if raw[4:8] == b'ftyp':
-        return '.mp4'
-    if raw[:4] == b'\x1a\x45\xdf\xa3':
-        return '.webm'
-    return None
+def leer_video(video: UploadFile) -> tuple[bytes, str]:
+    raw = video.file.read(5 * 1024 * 1024 + 1)
+    if not raw or len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(413, 'El video debe tener entre 1 byte y 5 MB.')
+    extension = extension_video(raw)
+    if not extension:
+        raise HTTPException(415, 'Solo se admiten videos MP4, MOV o WebM.')
+    return raw, extension
+
+
+def duracion_valida(ruta: str) -> float:
+    fps, duracion = propiedades_video(ruta)
+    if not fps:
+        raise HTTPException(422, 'No se pudo leer el video.')
+    if duracion > MAX_SEGUNDOS_VIDEO:
+        raise HTTPException(422, f'El video debe durar como máximo {MAX_SEGUNDOS_VIDEO} segundos.')
+    return fps
+
+
+@app.post('/movimientos')
+def movimientos(video: UploadFile = File(...), clase: str = Form(...), linea: float = Form(.5),
+                authorization: str = Header(default='')):
+    """HU-07: cada caja que cruza la línea es un movimiento con el SKU leído de su código."""
+    autorizar(token_de(authorization))
+    if MODELO is None:
+        raise HTTPException(503, MOTIVO)
+    if clase not in CLASES:
+        raise HTTPException(422, 'Selecciona una clase habilitada en el modelo.')
+    if not .05 <= linea <= .95:
+        raise HTTPException(422, 'La línea debe estar entre el 5 % y el 95 % del alto del cuadro.')
+    raw, extension = leer_video(video)
+    ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
+    if not LOCK.acquire(blocking=False):
+        raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
+    try:
+        with video_temporal(raw, extension) as ruta:
+            fps = duracion_valida(ruta)
+            try:
+                encontrados = analizar_movimientos(MODELO, ruta, ids, .5, fps, linea)
+            except Exception:
+                raise HTTPException(503, 'No se pudo completar el análisis del video.') from None
+        return {'movimientos': encontrados, 'clase': clase, 'linea': linea,
+                'modelo': os.getenv('VISION_MODELO_NOMBRE', 'Detector del almacén')[:160]}
+    finally:
+        LOCK.release()
 
 
 @app.post('/manipulacion')
 def manipulacion(video: UploadFile = File(...), producto: UUID = Form(...), clase: str = Form(...),
                  authorization: str = Header(default='')):
-    """HU-08: sigue las cajas de un video corto y avisa caídas, golpes y apilamiento indebido."""
+    """HU-08: sigue las cajas de un video corto y avisa caídas, golpes y apilamiento indebido con su captura."""
     autorizar(token_de(authorization), str(producto))
     if MODELO is None:
         raise HTTPException(503, MOTIVO)
     if clase not in CLASES:
         raise HTTPException(422, 'Selecciona una clase habilitada en el modelo.')
-    raw = video.file.read(5 * 1024 * 1024 + 1)
-    if not raw or len(raw) > 5 * 1024 * 1024:
-        raise HTTPException(413, 'El video debe tener entre 1 byte y 5 MB.')
-    extension = es_video(raw)
-    if not extension:
-        raise HTTPException(415, 'Solo se admiten videos MP4, MOV o WebM.')
+    raw, extension = leer_video(video)
     ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
     if not LOCK.acquire(blocking=False):
         raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
-    archivo = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
     try:
-        with archivo:
-            archivo.write(raw)
-        fps, duracion = propiedades_video(archivo.name)
-        if not fps:
-            raise HTTPException(422, 'No se pudo leer el video.')
-        if duracion > MAX_SEGUNDOS_VIDEO:
-            raise HTTPException(422, f'El video debe durar como máximo {MAX_SEGUNDOS_VIDEO} segundos.')
-        try:
-            alertas = analizar_video(MODELO, archivo.name, ids, .5, fps)
-        except Exception:
-            raise HTTPException(503, 'No se pudo completar el análisis del video.') from None
+        with video_temporal(raw, extension) as ruta:
+            fps = duracion_valida(ruta)
+            duracion = propiedades_video(ruta)[1]
+            try:
+                alertas = analizar_video(MODELO, ruta, ids, .5, fps)
+            except Exception:
+                raise HTTPException(503, 'No se pudo completar el análisis del video.') from None
         return {'alertas': [a.json() for a in alertas], 'duracion': round(duracion, 2), 'clase': clase,
                 'modelo': os.getenv('VISION_MODELO_NOMBRE', 'Detector del almacén')[:160]}
     finally:
         LOCK.release()
-        os.unlink(archivo.name)
+
+
+class CamaraIP(BaseModel):
+    id: UUID
+    url: str = Field(max_length=500)
+    linea: float = Field(.5, ge=.05, le=.95)
+
+
+class PruebaCamaras(BaseModel):
+    camaras: list[CamaraIP] = Field(min_length=1, max_length=MAX_CAMARAS)
+    segundos: float = Field(2, ge=1, le=15)
+    procesar: bool = False
+
+
+@app.post('/camaras/probar')
+def probar(prueba: PruebaCamaras, authorization: str = Header(default='')):
+    """HU-17: chequea la señal de hasta 4 cámaras RTSP a la vez y, si se pide, detecta y cuenta en cada una."""
+    autorizar(token_de(authorization))
+    if any(not url_valida(c.url) for c in prueba.camaras):
+        raise HTTPException(422, 'Cada cámara IP necesita una URL rtsp:// o rtsps:// válida.')
+    camaras = [{'id': str(c.id), 'url': c.url, 'linea': c.linea} for c in prueba.camaras]
+    if not prueba.procesar:
+        return {'camaras': probar_camaras(camaras, min(prueba.segundos, 3))}
+    if MODELO is None:
+        raise HTTPException(503, MOTIVO)
+    if not LOCK.acquire(blocking=False):
+        raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
+    try:
+        from ultralytics import YOLO
+        ids = [i for i, nombre in MODELO.names.items() if nombre in CLASES]
+        return {'camaras': probar_camaras(camaras, prueba.segundos, lambda: YOLO(MODELO.ruta), ids)}
+    finally:
+        LOCK.release()

@@ -1,6 +1,6 @@
 // HU-08: funciones sin dependencias para el análisis de manipulación.
 export type TipoIncidencia='caida'|'golpe'|'apilamiento';
-export type AlertaManipulacion={tipo:TipoIncidencia;segundo:number;confianza:number;detalle:string};
+export type AlertaManipulacion={tipo:TipoIncidencia;segundo:number;confianza:number;detalle:string;imagen?:string|null};
 export const TIPOS:Record<TipoIncidencia,string>={caida:'Caída',golpe:'Golpe',apilamiento:'Apilamiento indebido'};
 export const MAX_VIDEO=5242880,MAX_GRABACION=10;
 export function validarVideo(file:{type:string;size:number}){

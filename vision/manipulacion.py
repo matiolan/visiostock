@@ -27,20 +27,23 @@ class Alerta:
     segundo: float
     confianza: float
     detalle: str
+    track_id: int | None = None
+    imagen: str | None = None  # captura JPEG en base64 del cuadro con la caja marcada
 
     def json(self) -> dict:
         return {'tipo': self.tipo, 'segundo': round(self.segundo, 2), 'confianza': round(self.confianza, 3),
-                'detalle': self.detalle}
+                'detalle': self.detalle, 'imagen': self.imagen}
 
 
 @dataclass(frozen=True)
 class Umbrales:
     caida_vel: float = 3.0  # alturas/s hacia abajo para considerar caída
-    golpe_cambio: float = 20.0  # alturas/s² de frenado brusco para considerar golpe
+    golpe_cambio: float = 15.0  # alturas/s² de frenado brusco para considerar golpe (medido a ~8 cuadros/s)
     golpe_vel_min: float = 1.5  # solo hay golpe si la caja venía moviéndose rápido
     max_apilado: int = int(os.getenv('VISION_MAX_APILADO', '4'))  # cajas una sobre otra permitidas
     espera_apilamiento: float = 30.0  # segundos entre alertas de apilamiento
-    reaparicion_max: float = 1.0  # segundos que puede faltar una caja que cae borrosa
+    reaparicion_max: float = 2.0  # segundos que puede faltar una caja que cae borrosa o queda tapada en el suelo
+    caida_min: float = 1.5  # alturas de caja que debe bajar entre que se pierde y reaparece
 
 
 @dataclass
@@ -85,7 +88,7 @@ class DetectorManipulacion:
         vx2, vy2 = _velocidad(hist[-2], hist[-1])
         if vy2 > u.caida_vel:
             self._alertadas.add((d.track_id, 'caida'))
-            return Alerta('caida', t, d.confianza, f'bajó a {vy2:.1f} alturas de caja por segundo')
+            return Alerta('caida', t, d.confianza, f'bajó a {vy2:.1f} alturas de caja por segundo', d.track_id)
         if len(hist) == 3 and (d.track_id, 'golpe') not in self._alertadas:
             vx1, vy1 = _velocidad(hist[-3], hist[-2])
             dt = hist[-1].t - hist[-2].t
@@ -93,7 +96,7 @@ class DetectorManipulacion:
             frenado = (antes - despues) / dt if dt > 0 else 0.0
             if antes >= u.golpe_vel_min and frenado > u.golpe_cambio:
                 self._alertadas.add((d.track_id, 'golpe'))
-                return Alerta('golpe', t, d.confianza, f'frenó de golpe ({frenado:.0f} alturas de caja/s²)')
+                return Alerta('golpe', t, d.confianza, f'frenó de golpe ({frenado:.0f} alturas de caja/s²)', d.track_id)
         return None
 
 
@@ -107,12 +110,13 @@ class DetectorManipulacion:
                 if dt > u.reaparicion_max:
                     del self._perdidas[track_id]
                 continue
-            vy = (y - previa.y) / dt / previa.alto
-            if abs(x - previa.x) <= 1.5 * previa.alto and vy > u.caida_vel:
+            bajada = (y - previa.y) / previa.alto
+            if abs(x - previa.x) <= 1.5 * previa.alto and (bajada / dt > u.caida_vel or bajada >= u.caida_min):
                 del self._perdidas[track_id]
                 self._alertadas.update({(track_id, 'caida'), (d.track_id, 'caida')})
                 return Alerta('caida', t, d.confianza,
-                              f'se perdió en el aire y reapareció {(y - previa.y) / previa.alto:.1f} alturas de caja más abajo')
+                              f'se perdió en el aire y reapareció {(y - previa.y) / previa.alto:.1f} alturas de caja más abajo',
+                              d.track_id)
         return None
 
 
@@ -141,26 +145,6 @@ def altura_maxima_pila(detecciones: list[Deteccion], solape_min: float = 0.5) ->
     return maxima
 
 
-def propiedades_video(ruta: str) -> tuple[float, float]:
-    """Devuelve (cuadros por segundo, duración en segundos), o (0, 0) si no se puede leer."""
-    import cv2  # solo se usa con el modelo instalado; las pruebas no lo necesitan
-    captura = cv2.VideoCapture(ruta)
-    try:
-        if not captura.isOpened():
-            return 0.0, 0.0
-        fps = captura.get(cv2.CAP_PROP_FPS) or 0.0
-        cuadros = captura.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0
-        if fps <= 0 or fps > 240:
-            return 0.0, 0.0
-        if cuadros <= 0:  # los WebM grabados en el navegador no siempre indican la cantidad de cuadros
-            cuadros = 0
-            while captura.grab():
-                cuadros += 1
-        return fps, cuadros / fps
-    finally:
-        captura.release()
-
-
 def analizar_video(modelo, ruta: str, clases: list[int], conf: float, fps: float,
                    cuadros_por_segundo: float = 8.0) -> list[Alerta]:
     """Sigue las cajas del video con ByteTrack y devuelve las alertas de manipulación."""
@@ -175,5 +159,21 @@ def analizar_video(modelo, ruta: str, clases: list[int], conf: float, fps: float
         ids = r.boxes.id.int().tolist() if r.boxes.id is not None else [None] * len(r.boxes)
         detecciones = [Deteccion(tuple(c), float(p), t) for c, p, t in
                        zip(r.boxes.xyxy.tolist(), r.boxes.conf.tolist(), ids)]
-        alertas += detector.actualizar(i * salto / fps, detecciones)
+        nuevas = detector.actualizar(i * salto / fps, detecciones)
+        for alerta in nuevas:
+            marcadas = [d.caja for d in detecciones if alerta.track_id is None or d.track_id == alerta.track_id]
+            alerta.imagen = captura(r.orig_img, marcadas)
+        alertas += nuevas
     return alertas
+
+
+def captura(cuadro_bgr, cajas) -> str:
+    """Evidencia de la alerta: el cuadro con las cajas involucradas marcadas en rojo."""
+    from PIL import Image, ImageDraw
+    from movimientos import jpeg_base64
+    imagen = Image.fromarray(cuadro_bgr[:, :, ::-1])
+    dibujo = ImageDraw.Draw(imagen)
+    grosor = max(2, imagen.width // 200)
+    for x1, y1, x2, y2 in cajas:
+        dibujo.rectangle((x1, y1, x2, y2), outline=(230, 40, 40), width=grosor)
+    return jpeg_base64(imagen, lado=960)
