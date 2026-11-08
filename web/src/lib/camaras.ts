@@ -1,11 +1,11 @@
 import { supabaseBrowser } from './supabase';
 import { buscarDispositivo, type Camara, type Zona } from './dispositivos';
-const sinMigracion='No se pudieron cargar las cámaras. Si es tu primera vez, ejecuta supabase/05_camaras_zonas.sql en Supabase.';
+const sinMigracion='No se pudieron cargar las cámaras. Si es tu primera vez, ejecuta supabase/06_camaras_zonas.sql en Supabase.';
 export async function listarCamaras():Promise<{zonas:Zona[];camaras:Camara[]}>{
  const db=supabaseBrowser();const [z,c]=await Promise.all([db.from('vs_zonas').select('*').order('nombre'),db.from('vs_camaras').select('*').order('nombre')]);
  if(z.error||c.error)throw new Error(sinMigracion);return {zonas:z.data||[],camaras:c.data||[]};
 }
-function error(e:{code?:string}|null){if(!e)return;if(e.code==='23505')throw new Error('Ya existe un registro con ese nombre en el mismo lugar.');throw new Error('No se pudo guardar. Comprueba tu permiso y que ejecutaste 05_camaras_zonas.sql.');}
+function error(e:{code?:string}|null){if(!e)return;if(e.code==='23505')throw new Error('Ya existe un registro con ese nombre en el mismo lugar.');throw new Error('No se pudo guardar. Comprueba tu permiso y que ejecutaste 06_camaras_zonas.sql.');}
 export async function crearZona(almacen:{id:string;empresa_id:string},nombre:string){
  const {error:e}=await supabaseBrowser().from('vs_zonas').insert({empresa_id:almacen.empresa_id,almacen_id:almacen.id,nombre:nombre.trim()});error(e);
 }

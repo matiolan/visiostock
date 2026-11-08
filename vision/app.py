@@ -21,6 +21,8 @@ from fastapi.responses import JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from codigos import leer_codigos
+from movimientos import analizar_movimientos
+from videos import extension_video, propiedades_video, video_temporal
 
 load_dotenv(Path(__file__).with_name('.env'))
 MODELO = None
@@ -31,7 +33,8 @@ Image.MAX_IMAGE_PIXELS = 20_000_000
 MAX_PETICION = 5 * 1024 * 1024 + 64 * 1024  # imagen de 5 MB más los campos del formulario
 POR_MINUTO = int(os.getenv('VISION_LIMITE_POR_MINUTO', '20'))
 VISITAS: dict[str, deque] = {}
-LIMITADAS = {'/analizar', '/identificar'}  # rutas que consultan Supabase y usan CPU
+LIMITADAS = {'/analizar', '/identificar', '/movimientos'}  # rutas que consultan Supabase y usan CPU
+MAX_SEGUNDOS_VIDEO = 30
 
 
 def espera_frecuencia(ip: str) -> int:
@@ -208,5 +211,52 @@ def analizar(imagen: UploadFile = File(...), producto: UUID = Form(...), clase: 
                 'ancho': imagen_rgb.width, 'alto': imagen_rgb.height}
     except Exception:
         raise HTTPException(503, 'No se pudo completar el análisis con el modelo instalado.') from None
+    finally:
+        LOCK.release()
+
+
+def leer_video(video: UploadFile) -> tuple[bytes, str]:
+    raw = video.file.read(5 * 1024 * 1024 + 1)
+    if not raw or len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(413, 'El video debe tener entre 1 byte y 5 MB.')
+    extension = extension_video(raw)
+    if not extension:
+        raise HTTPException(415, 'Solo se admiten videos MP4, MOV o WebM.')
+    return raw, extension
+
+
+def duracion_valida(ruta: str) -> float:
+    fps, duracion = propiedades_video(ruta)
+    if not fps:
+        raise HTTPException(422, 'No se pudo leer el video.')
+    if duracion > MAX_SEGUNDOS_VIDEO:
+        raise HTTPException(422, f'El video debe durar como máximo {MAX_SEGUNDOS_VIDEO} segundos.')
+    return fps
+
+
+@app.post('/movimientos')
+def movimientos(video: UploadFile = File(...), clase: str = Form(...), linea: float = Form(.5),
+                authorization: str = Header(default='')):
+    """HU-07: cada caja que cruza la línea es un movimiento con el SKU leído de su código."""
+    autorizar(token_de(authorization))
+    if MODELO is None:
+        raise HTTPException(503, MOTIVO)
+    if clase not in CLASES:
+        raise HTTPException(422, 'Selecciona una clase habilitada en el modelo.')
+    if not .05 <= linea <= .95:
+        raise HTTPException(422, 'La línea debe estar entre el 5 % y el 95 % del alto del cuadro.')
+    raw, extension = leer_video(video)
+    ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
+    if not LOCK.acquire(blocking=False):
+        raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
+    try:
+        with video_temporal(raw, extension) as ruta:
+            fps = duracion_valida(ruta)
+            try:
+                encontrados = analizar_movimientos(MODELO, ruta, ids, .5, fps, linea)
+            except Exception:
+                raise HTTPException(503, 'No se pudo completar el análisis del video.') from None
+        return {'movimientos': encontrados, 'clase': clase, 'linea': linea,
+                'modelo': os.getenv('VISION_MODELO_NOMBRE', 'Detector del almacén')[:160]}
     finally:
         LOCK.release()

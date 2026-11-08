@@ -1,5 +1,5 @@
 -- SCRUM-27 (HU-17): varias cámaras por almacén, agrupadas en zonas.
--- Ejecutar después de 02_verificaciones.sql. No borra datos; las verificaciones existentes quedan sin cámara.
+-- Ejecutar después de 05_movimientos_sin_sku.sql. No borra datos; las verificaciones existentes quedan sin cámara.
 begin;
 create table if not exists public.vs_zonas (
  id uuid primary key default gen_random_uuid(), empresa_id uuid not null references public.vs_empresas(id), almacen_id uuid not null,

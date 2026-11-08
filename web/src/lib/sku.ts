@@ -8,3 +8,10 @@ export function productosPorCodigo<T extends {id:string;sku:string}>(productos:T
  const buscados=new Set(codigos.map(c=>normal(skuDesdeCodigo(c))).filter(Boolean));
  return productos.filter(p=>buscados.has(normal(p.sku)));
 }
+// Movimientos leídos de un video: se registran solo los que tienen un único producto del almacén con ese SKU.
+export type MovimientoVideo={sentido:'entrada'|'salida';segundo:number;codigo:string|null;tipo:string|null;imagen:string|null};
+export function clasificarMovimientos<T extends {id:string;sku:string;almacen_id:string}>(movs:MovimientoVideo[],productos:T[],almacen:string){
+ const delAlmacen=productos.filter(p=>p.almacen_id===almacen);
+ return movs.map(m=>{const encontrados=m.codigo?productosPorCodigo(delAlmacen,[m.codigo]):[];
+  return {...m,producto:encontrados.length===1?encontrados[0]:null,motivo:!m.codigo?'NO IDENTIFICADO':encontrados.length?'':'Código sin producto en este almacén'};});
+}
