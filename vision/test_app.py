@@ -108,4 +108,30 @@ class VisionTests(unittest.TestCase):
   with patch.dict(os.environ,{'SUPABASE_URL':'https://example.supabase.co','SUPABASE_PUBLISHABLE_KEY':'public'}),patch.object(mod.httpx,'Client') as client:
    get=client.return_value.__enter__.return_value.get;get.return_value.status_code=200
    mod.autorizar('token');self.assertEqual(get.call_count,1)
+ def movimientos(self,contenido=b'\x00\x00\x00\x18ftypisom'+b'\x00'*64,headers={'Authorization':'Bearer test'},linea='0.5',clase='caja'):
+  return self.client.post('/movimientos',headers=headers,data={'clase':clase,'linea':linea},files={'video':('clip.mp4',contenido,'video/mp4')})
+ def test_movimientos_sin_sesion(self):
+  self.assertEqual(self.movimientos(headers={}).status_code,401)
+ def test_movimientos_sin_modelo(self):
+  with patch.object(mod,'autorizar'):self.assertEqual(self.movimientos().status_code,503)
+ def test_movimientos_linea_fuera_de_rango(self):
+  self.model()
+  with patch.object(mod,'autorizar'):self.assertEqual(self.movimientos(linea='0.99').status_code,422)
+ def test_movimientos_rechaza_lo_que_no_es_video(self):
+  self.model()
+  with patch.object(mod,'autorizar'):self.assertEqual(self.movimientos(contenido=raw).status_code,415)
+ def test_movimientos_video_largo(self):
+  self.model()
+  with patch.object(mod,'autorizar'),patch.object(mod,'propiedades_video',return_value=(30,31.0)),patch.object(mod,'analizar_movimientos') as a:
+   self.assertEqual(self.movimientos().status_code,422)
+  a.assert_not_called()
+ def test_movimientos_devuelve_sku_y_sin_identificar(self):
+  model=self.model();encontrados=[{'sentido':'entrada','segundo':1.2,'codigo':'LALI-001','tipo':'QR','imagen':'abc'},{'sentido':'salida','segundo':3.4,'codigo':None,'tipo':None,'imagen':'def'}]
+  with patch.object(mod,'autorizar') as auth,patch.object(mod,'propiedades_video',return_value=(30,8.0)),patch.object(mod,'analizar_movimientos',return_value=encontrados) as a:
+   r=self.movimientos(linea='0.4')
+  self.assertEqual(r.status_code,200);self.assertEqual(r.json()['movimientos'],encontrados);auth.assert_called_once_with('test')
+  self.assertIs(a.call_args.args[0],model);self.assertEqual(a.call_args.args[2],[0]);self.assertEqual(a.call_args.args[5],.4);self.assertFalse(Path(a.call_args.args[1]).exists())
+ def test_movimientos_con_limite_frecuencia(self):
+  with patch.object(mod,'POR_MINUTO',1),patch.object(mod,'autorizar'):
+   self.assertEqual(self.movimientos().status_code,503);self.assertEqual(self.movimientos().status_code,429)
 if __name__=='__main__':unittest.main(verbosity=2)

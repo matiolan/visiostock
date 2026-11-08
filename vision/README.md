@@ -34,6 +34,16 @@ En Verificación visual: elige producto, foto y clase, pulsa Analizar imagen, re
 
 Con una foto cargada, **Identificar por código** envía la imagen a `POST /identificar`, que lee códigos QR, DataMatrix, EAN/UPC, Code128, Code39, Code93 e ITF con zxing-cpp. La web busca el SKU leído entre los productos que el usuario puede ver (RLS) y lo selecciona; si el SKU existe en varios almacenes, pide elegir el correcto. El código puede contener solo el SKU, `SKU:ABC-1` o un enlace con `?sku=ABC-1`. Este endpoint no necesita el modelo YOLO, solo una sesión válida.
 
+**Movimientos por video.** En **Movimientos → Registrar movimientos por video** se graba hasta 10 s o se carga un video (máx. 5 MB y 30 s) y `POST /movimientos` sigue las cajas con ByteTrack. Cada caja que cruza la línea (arriba → abajo = entrada) es un movimiento, y el SKU se lee del recorte de esa caja. Si el código no se lee, el movimiento queda **NO IDENTIFICADO** con la imagen de la caja (`supabase/05_movimientos_sin_sku.sql`) y no cambia el stock hasta que alguien asigna el producto.
+
+Para medir la tasa de lectura (criterio ≥ 90 %) con un video controlado y un CSV `orden,sentido,sku`:
+
+```powershell
+python vision/evaluar_sku.py video.mp4 esperado.csv --modelo vision/models/best.pt
+```
+
+Con un video sintético de 50 cajas (QR y Code128, 3 sin código legible) el resultado fue 50/50. Falta medirlo con cajas reales.
+
 ## Servidor y Vercel
 
 La aplicación Vite puede publicarse en Vercel con las variables de Supabase y `VITE_VISION_URL`. Este servicio Python con Ultralytics debe ejecutarse en un servidor independiente con memoria suficiente para el modelo; no se incorpora al frontend estático. Reinicia el servicio al cambiar el modelo o las variables. Usa un solo proceso por modelo para controlar la concurrencia o añade una cola al escalar.

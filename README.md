@@ -15,6 +15,8 @@ Desde `web/`: `npm ci`, copiar `.env.example` a `.env`, configurar las dos varia
 
 Si tu base ya está configurada, no repitas el esquema inicial. Ejecuta únicamente las migraciones que te falten. La migración `supabase/02_verificaciones.sql` ya fue aplicada al proyecto Supabase configurado durante la renovación.
 
+`supabase/05_movimientos_sin_sku.sql` (HU-07) guarda los movimientos detectados por video cuyo código QR o de barras no se pudo leer, con su imagen, hasta que se les asigna el producto.
+
 ## Publicar en Vercel
 
 La publicación actual está en la cuenta de Mia mediante Vercel Drop y usa el paquete compilado de esta web. Conserva este repositorio como fuente. Esa publicación no se actualiza automáticamente al hacer push: sube una nueva compilación al mismo proyecto de Vercel o usa Vercel CLI. Para conectar el repositorio personal matiolan/visiostock a Vercel se requiere la cuenta propietaria del repositorio.
