@@ -44,6 +44,15 @@ python vision/evaluar_sku.py video.mp4 esperado.csv --modelo vision/models/best.
 
 Con un video sintético de 50 cajas (QR y Code128, 3 sin código legible) el resultado fue 50/50. Falta medirlo con cajas reales.
 
+### Cámaras IP y zonas (HU-17)
+
+En **Cámaras y zonas** se registran cámaras del equipo o cámaras IP con su URL RTSP y su línea virtual. `POST /camaras/probar` recibe hasta 4 cámaras y atiende cada una en su propio hilo con su copia del modelo:
+
+- **Chequeo** (`procesar: false`): abre la URL y lee unos segundos. La web lo repite cada 15 s mientras **Monitorear cámaras IP** está activo y guarda la señal con `vs_senal_camara`. Una cámara con más de 60 s sin señal queda **desconectada**, aparece una alerta (y una notificación del navegador si se permitió) y su zona queda **sin monitoreo** si no tiene otra cámara IP en línea.
+- **Procesamiento simultáneo** (`procesar: true`): detecta, sigue y cuenta cruces en cada cámara durante 10 s y devuelve los FPS de cada una. Los movimientos se atribuyen a la cámara (y por lo tanto a su zona) que los vio. Con 4 transmisiones RTSP simuladas (mediamtx) en un CPU de escritorio, a resolución de inferencia 416, cada cámara procesó entre 11,4 y 13,6 FPS; a 640 no llegaba a 10.
+
+Solo se aceptan URLs `rtsp://` o `rtsps://`. El servicio se conecta a la dirección que indique el usuario autenticado, así que debe ejecutarse en la red del almacén y no tener acceso a servicios internos sensibles. Usa en cada cámara una cuenta que solo pueda ver video.
+
 ## Servidor y Vercel
 
 La aplicación Vite puede publicarse en Vercel con las variables de Supabase y `VITE_VISION_URL`. Este servicio Python con Ultralytics debe ejecutarse en un servidor independiente con memoria suficiente para el modelo; no se incorpora al frontend estático. Reinicia el servicio al cambiar el modelo o las variables. Usa un solo proceso por modelo para controlar la concurrencia o añade una cola al escalar.

@@ -16,10 +16,12 @@ from uuid import UUID
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from camaras_ip import MAX_CAMARAS, probar_camaras, url_valida
 from codigos import leer_codigos
 from movimientos import analizar_movimientos
 from videos import extension_video, propiedades_video, video_temporal
@@ -33,7 +35,7 @@ Image.MAX_IMAGE_PIXELS = 20_000_000
 MAX_PETICION = 5 * 1024 * 1024 + 64 * 1024  # imagen de 5 MB más los campos del formulario
 POR_MINUTO = int(os.getenv('VISION_LIMITE_POR_MINUTO', '20'))
 VISITAS: dict[str, deque] = {}
-LIMITADAS = {'/analizar', '/identificar', '/movimientos'}  # rutas que consultan Supabase y usan CPU
+LIMITADAS = {'/analizar', '/identificar', '/movimientos', '/camaras/probar'}  # rutas que consultan Supabase y usan CPU
 MAX_SEGUNDOS_VIDEO = 30
 
 
@@ -152,6 +154,7 @@ async def lifespan(app):
             if modelo.task != 'detect':
                 raise ValueError('Se requiere un detector')
             MODELO, CLASES = modelo, permitidas
+            MODELO.ruta = str(ruta)  # las cámaras IP cargan su propia copia en cada hilo
             MOTIVO = 'Modelo disponible. Verifica que la clase elegida corresponda al producto.'
         except Exception:
             MOTIVO = 'No se pudo cargar el modelo o sus clases. Revisa la configuración del servicio.'
@@ -258,5 +261,38 @@ def movimientos(video: UploadFile = File(...), clase: str = Form(...), linea: fl
                 raise HTTPException(503, 'No se pudo completar el análisis del video.') from None
         return {'movimientos': encontrados, 'clase': clase, 'linea': linea,
                 'modelo': os.getenv('VISION_MODELO_NOMBRE', 'Detector del almacén')[:160]}
+    finally:
+        LOCK.release()
+
+
+class CamaraIP(BaseModel):
+    id: UUID
+    url: str = Field(max_length=500)
+    linea: float = Field(.5, ge=.05, le=.95)
+
+
+class PruebaCamaras(BaseModel):
+    camaras: list[CamaraIP] = Field(min_length=1, max_length=MAX_CAMARAS)
+    segundos: float = Field(2, ge=1, le=15)
+    procesar: bool = False
+
+
+@app.post('/camaras/probar')
+def probar(prueba: PruebaCamaras, authorization: str = Header(default='')):
+    """HU-17: chequea la señal de hasta 4 cámaras RTSP a la vez y, si se pide, detecta y cuenta en cada una."""
+    autorizar(token_de(authorization))
+    if any(not url_valida(c.url) for c in prueba.camaras):
+        raise HTTPException(422, 'Cada cámara IP necesita una URL rtsp:// o rtsps:// válida.')
+    camaras = [{'id': str(c.id), 'url': c.url, 'linea': c.linea} for c in prueba.camaras]
+    if not prueba.procesar:
+        return {'camaras': probar_camaras(camaras, min(prueba.segundos, 3))}
+    if MODELO is None:
+        raise HTTPException(503, MOTIVO)
+    if not LOCK.acquire(blocking=False):
+        raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
+    try:
+        from ultralytics import YOLO
+        ids = [i for i, nombre in MODELO.names.items() if nombre in CLASES]
+        return {'camaras': probar_camaras(camaras, prueba.segundos, lambda: YOLO(MODELO.ruta), ids)}
     finally:
         LOCK.release()
