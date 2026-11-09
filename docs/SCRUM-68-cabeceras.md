@@ -11,12 +11,12 @@ Las cuatro cabeceras de `web/vercel.json` se aplican a todas las rutas y archivo
 
 La CSP permite imágenes locales `blob:`/`data:` y el almacenamiento del proyecto `bkedmoshqaulckhvnclx`, así como HTTPS y WebSocket hacia ese mismo proyecto. No permite todos los subdominios de Supabase. Google Fonts utiliza `fonts.googleapis.com` para CSS y `fonts.gstatic.com` para tipografías. La cámara conserva su control normal de permisos.
 
-`VITE_VISION_URL` todavía no está configurada en producción. Antes de activar el servicio de visión o cambiar de proyecto Supabase, se debe añadir su origen HTTPS exacto a `connect-src` y repetir la validación. No se debe resolver permitiendo cualquier origen o scripts inline.
+El 8 de noviembre de 2026 se configuró en Vercel `VITE_VISION_URL=https://contents-boys-sought-blackberry.trycloudflare.com`. Esta corrección incorpora ese origen HTTPS exacto a `connect-src`. El pipeline valida su presencia usando la variable del repositorio o esta URL como valor predeterminado. Antes de cambiar el túnel o el proyecto Supabase, se deben actualizar tanto la variable de Vercel como la CSP y repetir la validación. No se debe resolver permitiendo cualquier origen o scripts inline. La disponibilidad del túnel depende del equipo que ejecuta Docker; guardar la URL no demuestra que el servicio esté accesible.
 
 ## Publicación y comprobación
 
 1. Ejecutar `npm ci`, `npm test` y `npm run build` desde `web/`; revisar los análisis de seguridad del pipeline de la rama/PR.
-2. Publicar la configuración junto con la compilación. En el proyecto de Vercel Drop, subir únicamente `dist/` y un `vercel.json` con `headers`, `redirects` y `rewrites`; el archivo de despliegue estático no necesita volver a ejecutar el build.
+2. Revisar y fusionar esta corrección respetando la protección de `main`. El proyecto de Vercel utiliza Vite y Root Directory `web`. La conexión nativa de Git sigue pendiente de la autorización del propietario de `matiolan/visiostock`; Mia eligió esperar esa conexión y no crear un token ni un workflow alternativo de publicación. Tras conectarlo, confirmar un despliegue del commit de `main` con las variables públicas de Supabase y visión configuradas. Hasta entonces, no considerar esta corrección publicada.
 3. Comprobar por HTTPS las cuatro cabeceras en `/`, `/acceso`, `/recuperar`, `/portal` y un archivo JS/CSS. El dominio anterior conserva la redirección a `visiostock-mia.vercel.app`.
 4. Abrir portada, login y recuperación; comprobar que cargan los estilos/fuentes y que no aparecen bloqueos CSP de recursos legítimos. Con una cuenta autorizada, repetir la revisión de una foto y su almacenamiento.
 
