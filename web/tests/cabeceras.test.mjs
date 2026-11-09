@@ -43,8 +43,16 @@ test('la CSP limita scripts y bloquea marcos, plugins y cambios de base', () => 
 
 test('connect-src admite orígenes exactos y valida el servicio de visión si está configurado', () => {
   const sources = directives.get('connect-src') ?? [];
+  const requiredSupabaseOrigin = new URL('https://bkedmoshqaulckhvnclx.supabase.co').origin;
   assert(sources.includes("'self'"));
-  assert(sources.some((source) => source === 'https://bkedmoshqaulckhvnclx.supabase.co'));
+  assert(
+    sources
+      .filter((source) => source !== "'self'")
+      .some((source) => {
+        const url = new URL(source);
+        return url.origin === requiredSupabaseOrigin;
+      })
+  );
   for (const source of sources.filter((value) => value !== "'self'")) {
     const url = new URL(source);
     assert(['https:', 'wss:'].includes(url.protocol), `Origen sin TLS: ${source}`);
