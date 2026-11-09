@@ -41,6 +41,7 @@ begin
   raise exception 'Los movimientos son append-only: no se pueden modificar ni eliminar (id=%)', old.id;
 end;
 $$;
+revoke all on function public.vs_bloquear_movimiento() from public, anon;
 
 drop trigger if exists vs_movimientos_bloquear_update on public.vs_movimientos;
 create trigger vs_movimientos_bloquear_update
@@ -114,6 +115,7 @@ begin
   return new;
 end;
 $$;
+revoke all on function public.vs_encadenar_movimiento() from public, anon;
 
 drop trigger if exists vs_movimientos_encadenar on public.vs_movimientos;
 create trigger vs_movimientos_encadenar
