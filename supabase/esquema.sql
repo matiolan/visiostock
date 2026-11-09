@@ -9,7 +9,7 @@ create index on public.vs_productos(empresa_id);
 create index on public.vs_movimientos(empresa_id,creado_en desc);
 create function public.vs_admin() returns boolean language sql stable security definer set search_path=public as $$ select exists(select 1 from vs_miembros where user_id=auth.uid() and rol='administrador') $$;
 create function public.vs_acceso(e uuid) returns boolean language sql stable security definer set search_path=public as $$ select exists(select 1 from vs_miembros where user_id=auth.uid() and (rol='administrador' or empresa_id=e)) $$;
-revoke all on function public.vs_admin(),public.vs_acceso(uuid) from public;
+revoke all on function public.vs_admin(),public.vs_acceso(uuid) from public, anon;
 grant execute on function public.vs_admin(),public.vs_acceso(uuid) to authenticated;
 alter table vs_empresas enable row level security;
 alter table vs_miembros enable row level security;
@@ -39,7 +39,7 @@ begin
  insert into vs_movimientos(empresa_id,producto_id,sentido,cantidad,actor) values(producto.empresa_id,p,s,n,auth.uid()) returning id into nuevo;
  return nuevo;
 end $$;
-revoke all on function vs_registrar_movimiento(uuid,text,int) from public;
+revoke all on function vs_registrar_movimiento(uuid,text,int) from public, anon;
 grant execute on function vs_registrar_movimiento(uuid,text,int) to authenticated;
 
 create function public.vs_asignar_cliente(correo text,empresa uuid) returns void language plpgsql security definer set search_path=public as $$
@@ -52,6 +52,6 @@ begin
  if exists(select 1 from vs_miembros where user_id=usuario and rol='administrador') then raise exception 'No se puede cambiar el administrador'; end if;
  insert into vs_miembros(user_id,empresa_id,rol) values(usuario,empresa,'cliente') on conflict(user_id) do update set empresa_id=excluded.empresa_id,rol='cliente';
 end $$;
-revoke all on function public.vs_asignar_cliente(text,uuid) from public;
+revoke all on function public.vs_asignar_cliente(text,uuid) from public, anon;
 grant execute on function public.vs_asignar_cliente(text,uuid) to authenticated;
 commit;
