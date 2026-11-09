@@ -1,7 +1,23 @@
 // SCRUM-24 · Escenario 3 (exactitud): totales conocidos deben coincidir al 100 %.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {generarReporte, inicioSemana, ultimaSemanaCompleta, reporteACSV} from '../src/lib/reporte-semanal.ts';
+import {cargarPaginasReporte, generarReporte, inicioSemana, ultimaSemanaCompleta, reporteACSV} from '../src/lib/reporte-semanal.ts';
+
+test('el reporte lee todas las páginas aunque el servidor reduzca el límite', async () => {
+ const registros = Array.from({length: 10005}, (_, id) => ({id}));
+ const filas = await cargarPaginasReporte(async (desde, hasta) => ({
+  data: registros.slice(desde, Math.min(hasta + 1, desde + 100)),
+  count: registros.length,
+  error: null,
+ }));
+ assert.deepEqual(filas, registros);
+});
+
+test('el reporte rechaza una consulta incompleta o fallida', async () => {
+ await assert.rejects(cargarPaginasReporte(async () => ({data: [], count: 1, error: null})), /incompletos/);
+ await assert.rejects(cargarPaginasReporte(async () => ({data: null, count: null, error: new Error('red')})), /No se pudieron/);
+ assert.deepEqual(await cargarPaginasReporte(async () => ({data: [], count: 0, error: null})), []);
+});
 
 const productos=[{id:'p1',sku:'A-1',nombre:'Caja A'},{id:'p2',sku:'B-2',nombre:'Caja B'},{id:'p3',sku:'C-3',nombre:'Caja C'},{id:'p4',sku:'D-4',nombre:'Caja D'},{id:'p5',sku:'E-5',nombre:'Caja E'},{id:'p6',sku:'F-6',nombre:'Caja F'}];
 // Semana evaluada: lunes 02/11/2026 00:00 Lima (= 05:00 UTC) a lunes 09/11/2026 00:00 Lima.
