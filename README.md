@@ -26,6 +26,12 @@ Orden de los scripts de `supabase/` (todos se ejecutan en el SQL Editor como pos
 
 Pruebas con datos ficticios y `rollback` (no dejan datos): `prueba_aislamiento.sql` y `prueba_reporte_semanal.sql`.
 
+`supabase/05_movimientos_sin_sku.sql` (HU-07) guarda los movimientos detectados por video cuyo código QR o de barras no se pudo leer, con su imagen, hasta que se les asigna el producto.
+
+`supabase/06_camaras_zonas.sql` (HU-17) agrega zonas por almacén y cámaras por zona. La vista **Cámaras y zonas** permite registrarlas, activarlas o desactivarlas y verlas en vivo a la vez; en Verificación visual se puede elegir la cámara del almacén y queda guardada con la evidencia. El navegador identifica cada cámara por su nombre, así que una cámara solo se abre desde el equipo al que está conectada.
+
+`supabase/07_manipulacion.sql` (HU-08) guarda las incidencias de manipulación incorrecta con su captura de evidencia: caídas y golpes detectados en video y apilamiento indebido en video o foto. Se registran y revisan desde la vista **Manipulación**.
+
 ## Publicar en Vercel
 
 La publicación actual está en la cuenta de Mia mediante Vercel Drop y usa el paquete compilado de esta web. Conserva este repositorio como fuente. Esa publicación no se actualiza automáticamente al hacer push: sube una nueva compilación al mismo proyecto de Vercel o usa Vercel CLI. Para conectar el repositorio personal matiolan/visiostock a Vercel se requiere la cuenta propietaria del repositorio.
