@@ -23,6 +23,27 @@ export type ReporteSemanal = {
 const OFFSET_LIMA_MS = 5 * 3600 * 1000;
 const DIA_MS = 24 * 3600 * 1000;
 
+type PaginaReporte<T> = { data: T[] | null; error: unknown; count: number | null };
+
+export async function cargarPaginasReporte<T>(
+  consultar: (desde: number, hasta: number) => PromiseLike<PaginaReporte<T>>,
+): Promise<T[]> {
+  const filas: T[] = [];
+  let total: number | null = null;
+  do {
+    const pagina = await consultar(filas.length, filas.length + 499);
+    if (pagina.error || pagina.count === null || !pagina.data) {
+      throw new Error('No se pudieron leer todos los registros del reporte.');
+    }
+    if (total === null) total = pagina.count;
+    if (!pagina.data.length && filas.length < total) {
+      throw new Error('La consulta del reporte devolvió datos incompletos. Vuelve a intentarlo.');
+    }
+    filas.push(...pagina.data);
+  } while (filas.length < total);
+  return filas;
+}
+
 /** Lunes 00:00 (hora de Lima) de la semana que contiene `fecha`, como instante UTC. */
 export function inicioSemana(fecha: Date): Date {
   const lima = new Date(fecha.getTime() - OFFSET_LIMA_MS);
