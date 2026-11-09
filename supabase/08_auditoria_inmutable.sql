@@ -101,7 +101,7 @@ alter table public.vs_movimientos add column if not exists hash_anterior text;
 alter table public.vs_movimientos add column if not exists hash_actual text;
 
 create or replace function public.vs_encadenar_movimiento() returns trigger
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare anterior text;
 begin
   select hash_actual into anterior from public.vs_movimientos
@@ -123,7 +123,7 @@ create trigger vs_movimientos_encadenar
   for each row execute function public.vs_encadenar_movimiento();
 
 create or replace function public.vs_verificar_cadena(empresa uuid) returns table(valido boolean, primer_alterado uuid)
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare r record; anterior text := repeat('0', 64); calculado text;
 begin
   if not vs_acceso(empresa) then raise exception 'No autorizado'; end if;
