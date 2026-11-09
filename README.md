@@ -15,6 +15,17 @@ Desde `web/`: `npm ci`, copiar `.env.example` a `.env`, configurar las dos varia
 
 Si tu base ya está configurada, no repitas el esquema inicial. Ejecuta únicamente las migraciones que te falten. La migración `supabase/02_verificaciones.sql` ya fue aplicada al proyecto Supabase configurado durante la renovación.
 
+Orden de los scripts de `supabase/` (todos se ejecutan en el SQL Editor como postgres):
+
+| Script | Contenido | Estado en producción |
+| --- | --- | --- |
+| `esquema.sql` | Tablas, RLS y funciones base | Aplicado |
+| `02_verificaciones.sql` | Verificaciones con evidencia | Aplicado |
+| `03_endurecer_seguridad.sql` | Quita EXECUTE a `anon` (SCRUM-72) | Aplicado el 07/11/2026 |
+| `04_reporte_semanal.sql` | Reporte semanal automático con pg_cron, lunes 08:00 Lima (SCRUM-71) | Aplicado el 07/11/2026 |
+
+Pruebas con datos ficticios y `rollback` (no dejan datos): `prueba_aislamiento.sql` y `prueba_reporte_semanal.sql`.
+
 `supabase/05_movimientos_sin_sku.sql` (HU-07) guarda los movimientos detectados por video cuyo código QR o de barras no se pudo leer, con su imagen, hasta que se les asigna el producto.
 
 ## Publicar en Vercel
