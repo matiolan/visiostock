@@ -1,16 +1,21 @@
 // SCRUM-24 · HU-14: vista del reporte semanal con exportación a Excel (CSV) y PDF (impresión).
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from './lib/supabase';
-import { fechaLima, generarReporte, reporteACSV, sumarDias, ultimaSemanaCompleta, inicioSemana, type ReporteSemanal, type ProductoReporte, type Variacion } from './lib/reporte-semanal';
+import { cargarPaginasReporte, fechaLima, generarReporte, reporteACSV, sumarDias, ultimaSemanaCompleta, inicioSemana, type ReporteSemanal, type ProductoReporte, type Variacion } from './lib/reporte-semanal';
 
 async function cargarDatos(inicio: Date) {
   const db = supabaseBrowser(), desde = sumarDias(inicio, -7).toISOString(), hasta = sumarDias(inicio, 7).toISOString();
   const [m, v] = await Promise.all([
-    db.from('vs_movimientos').select('producto_id,sentido,cantidad,creado_en').gte('creado_en', desde).lt('creado_en', hasta).limit(10000),
-    db.from('vs_verificaciones').select('producto_id,diferencia,creado_en').gte('creado_en', desde).lt('creado_en', hasta).limit(10000),
+    cargarPaginasReporte((inicio, fin) => db.from('vs_movimientos')
+      .select('producto_id,sentido,cantidad,creado_en', { count: 'exact' })
+      .gte('creado_en', desde).lt('creado_en', hasta)
+      .order('creado_en').order('id').range(inicio, fin)),
+    cargarPaginasReporte((inicio, fin) => db.from('vs_verificaciones')
+      .select('producto_id,diferencia,creado_en', { count: 'exact' })
+      .gte('creado_en', desde).lt('creado_en', hasta)
+      .order('creado_en').order('id').range(inicio, fin)),
   ]);
-  if (m.error || v.error) throw new Error('No se pudieron leer los movimientos o verificaciones de esas semanas.');
-  return { movimientos: m.data ?? [], verificaciones: v.data ?? [] };
+  return { movimientos: m, verificaciones: v };
 }
 
 const signo = (n: number) => (n > 0 ? '+' : '') + n;
@@ -44,8 +49,8 @@ export default function Reportes({ productos, empresa }: { productos: ProductoRe
     <div className="reporte-controles no-print">
       <button onClick={() => setSemana(s => sumarDias(s, -7))} disabled={cargando}>‹ Semana anterior</button>
       <button onClick={() => setSemana(s => sumarDias(s, 7))} disabled={cargando || enCurso}>Semana siguiente ›</button>
-      <button className="export-button" onClick={descargarExcel} disabled={!r}>Descargar Excel (CSV)</button>
-      <button className="export-button" onClick={() => window.print()} disabled={!r}>Descargar PDF</button>
+      <button className="export-button" onClick={descargarExcel} disabled={cargando || !r}>Descargar Excel (CSV)</button>
+      <button className="export-button" onClick={() => window.print()} disabled={cargando || !r}>Descargar PDF</button>
     </div>
     <p className="vs-eyebrow">REPORTE SEMANAL DE MERMAS Y DISCREPANCIAS{empresa ? ` · ${empresa.toUpperCase()}` : ''}</p>
     <h2>Semana del {fechaLima(semana)} al {fechaLima(sumarDias(semana, 6))}{enCurso ? ' (en curso)' : ''}</h2>
