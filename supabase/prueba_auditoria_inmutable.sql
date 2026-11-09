@@ -14,20 +14,23 @@ insert into public.vs_movimientos(id, empresa_id, producto_id, sentido, cantidad
 insert into public.vs_movimientos(id, empresa_id, producto_id, sentido, cantidad, actor)
   values ('33000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', '32000000-0000-0000-0000-000000000001', 'salida', 3, '00000000-0000-0000-0000-0000000000b1');
 
+-- A partir de aqui actuamos como el cliente de la empresa (igual que la web autenticada).
+-- set_config con is_local=true dura el resto de esta transaccion, sobrevive al reset role.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b1', true);
+
 do $$
 declare
   antes_bitacora int;
   despues_bitacora int;
   v boolean; alt uuid;
 begin
-  -- Escenario 3: la cadena recien insertada debe ser valida.
+  -- Escenario 3 (parte 1): la cadena recien insertada debe ser valida.
   select valido, primer_alterado into v, alt from public.vs_verificar_cadena('30000000-0000-0000-0000-000000000001');
   if not v or alt is not null then raise exception 'La cadena deberia ser valida recien insertada'; end if;
 
-  -- Escenario 1: como cliente de la empresa, intentar modificar un movimiento debe fallar y quedar en la bitacora.
+  -- Escenario 1: intentar modificar o borrar un movimiento debe fallar y quedar en la bitacora.
   select count(*) into antes_bitacora from public.vs_intentos_bloqueados where empresa_id = '30000000-0000-0000-0000-000000000001';
-  set local role authenticated;
-  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b1', true);
   begin
     update public.vs_movimientos set cantidad = 999 where id = '33000000-0000-0000-0000-000000000001';
     raise exception 'El UPDATE deberia haber sido rechazado';
@@ -40,7 +43,6 @@ begin
   exception when others then
     if sqlerrm not like 'Los movimientos son append-only%' then raise; end if;
   end;
-  reset role;
   select count(*) into despues_bitacora from public.vs_intentos_bloqueados where empresa_id = '30000000-0000-0000-0000-000000000001';
   if despues_bitacora <> antes_bitacora + 2 then raise exception 'Se esperaban 2 intentos nuevos en la bitacora, hubo %', despues_bitacora - antes_bitacora; end if;
   if (select cantidad from public.vs_movimientos where id = '33000000-0000-0000-0000-000000000001') <> 10 then
@@ -51,10 +53,7 @@ begin
   end if;
 
   -- Escenario 2: un ajuste trazable corrige el stock sin tocar el movimiento original.
-  set local role authenticated;
-  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b1', true);
   perform public.vs_registrar_ajuste('32000000-0000-0000-0000-000000000001', '33000000-0000-0000-0000-000000000001', -2, 'Conteo fisico encontro 2 unidades menos');
-  reset role;
   if (select stock from public.vs_productos where id = '32000000-0000-0000-0000-000000000001') <> 5 then
     raise exception 'El stock tras el ajuste no es el esperado (10 - 3 inicial - 2 ajuste = 5)';
   end if;
@@ -64,12 +63,23 @@ begin
   if not exists (select 1 from public.vs_ajustes_inventario where movimiento_original_id = '33000000-0000-0000-0000-000000000001' and cantidad_ajuste = -2) then
     raise exception 'No quedo registrado el ajuste trazable';
   end if;
+end $$;
 
-  -- Escenario 3: una alteracion hecha por fuera de la aplicacion (p. ej. con service_role) se detecta.
-  update public.vs_movimientos set hash_actual = 'manipulado' where id = '33000000-0000-0000-0000-000000000001';
+reset role;
+
+-- Escenario 3 (parte 2): una alteracion hecha por fuera de la aplicacion (p. ej. restaurando un
+-- backup o con acceso directo a la base) se detecta. El propio trigger de bloqueo tambien
+-- impediria este UPDATE, asi que se desactiva un instante para simular ese escenario externo.
+alter table public.vs_movimientos disable trigger vs_movimientos_bloquear_update;
+update public.vs_movimientos set hash_actual = 'manipulado' where id = '33000000-0000-0000-0000-000000000001';
+alter table public.vs_movimientos enable trigger vs_movimientos_bloquear_update;
+
+do $$
+declare v boolean; alt uuid;
+begin
   select valido, primer_alterado into v, alt from public.vs_verificar_cadena('30000000-0000-0000-0000-000000000001');
   if v or alt <> '33000000-0000-0000-0000-000000000001' then raise exception 'La verificacion no detecto el hash manipulado'; end if;
-
   raise notice 'Auditoria inmutable OK: bloqueo + bitacora, ajustes trazables y cadena de hash funcionan';
 end $$;
+
 rollback;
