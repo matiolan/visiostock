@@ -81,14 +81,16 @@ La aplicación Vite puede publicarse en Vercel con las variables de Supabase y `
 
 ### Despliegue por HTTPS
 
-`vision/Dockerfile` construye el servicio con PyTorch para CPU. Los pesos no están en Git: coloca `vision/models/best.pt` antes de construir. El túnel de Cloudflare da la URL HTTPS sin abrir puertos ni usar una cuenta, y comparte la red del contenedor porque el servicio solo acepta `X-Forwarded-For` desde `127.0.0.1`. La URL aparece en el registro del túnel, cambia cada vez que este se reinicia y deja de responder si el equipo se apaga.
+`vision/Dockerfile` construye el servicio con PyTorch para CPU. Los pesos no están en Git: coloca `vision/models/best.pt` antes de construir. Tailscale Funnel publica el puerto local por HTTPS con una dirección fija (`https://<equipo>.<tailnet>.ts.net`) que no cambia al reiniciar. El contenedor y Funnel se reinician solos, pero el servicio deja de responder si el equipo se apaga.
 
 ```powershell
 docker build -t visiostock-vision vision
-docker run -d --name visiostock-vision --env-file vision/.env visiostock-vision
-docker run -d --name visiostock-tunel --network container:visiostock-vision cloudflare/cloudflared:latest tunnel --no-autoupdate --url http://127.0.0.1:7860
-docker logs visiostock-tunel
+docker run -d --name visiostock-vision-local --restart unless-stopped -p 127.0.0.1:8000:7860 --env-file vision/.env visiostock-vision
+tailscale funnel --bg http://127.0.0.1:8000
+tailscale funnel status
 ```
+
+Funnel llega al contenedor desde la red de Docker y no desde `127.0.0.1`, así que el servicio no confía en `X-Forwarded-For` y el límite por minuto se comparte entre todos los usuarios; por eso conviene subir `VISION_LIMITE_POR_MINUTO` (por ejemplo, a 60).
 
 Al tener la URL pública del servicio:
 
