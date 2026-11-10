@@ -29,20 +29,12 @@ begin
   select valido, primer_alterado into v, alt from public.vs_verificar_cadena('30000000-0000-0000-0000-000000000001');
   if not v or alt is not null then raise exception 'La cadena deberia ser valida recien insertada'; end if;
 
-  -- Escenario 1: intentar modificar o borrar un movimiento debe fallar y quedar en la bitacora.
+  -- Escenario 1: intentar modificar o borrar un movimiento no debe cambiar nada, y debe quedar
+  -- en la bitacora. El trigger no lanza excepcion (ver 08_auditoria_inmutable.sql): devuelve
+  -- null, asi que el UPDATE/DELETE "corre" sin error pero no afecta ninguna fila.
   select count(*) into antes_bitacora from public.vs_intentos_bloqueados where empresa_id = '30000000-0000-0000-0000-000000000001';
-  begin
-    update public.vs_movimientos set cantidad = 999 where id = '33000000-0000-0000-0000-000000000001';
-    raise exception 'El UPDATE deberia haber sido rechazado';
-  exception when others then
-    if sqlerrm not like 'Los movimientos son append-only%' then raise; end if;
-  end;
-  begin
-    delete from public.vs_movimientos where id = '33000000-0000-0000-0000-000000000002';
-    raise exception 'El DELETE deberia haber sido rechazado';
-  exception when others then
-    if sqlerrm not like 'Los movimientos son append-only%' then raise; end if;
-  end;
+  update public.vs_movimientos set cantidad = 999 where id = '33000000-0000-0000-0000-000000000001';
+  delete from public.vs_movimientos where id = '33000000-0000-0000-0000-000000000002';
   select count(*) into despues_bitacora from public.vs_intentos_bloqueados where empresa_id = '30000000-0000-0000-0000-000000000001';
   if despues_bitacora <> antes_bitacora + 2 then raise exception 'Se esperaban 2 intentos nuevos en la bitacora, hubo %', despues_bitacora - antes_bitacora; end if;
   if (select cantidad from public.vs_movimientos where id = '33000000-0000-0000-0000-000000000001') <> 10 then

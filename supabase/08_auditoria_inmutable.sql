@@ -33,12 +33,18 @@ create policy intentar_modificar_movimientos on public.vs_movimientos for update
 drop policy if exists intentar_eliminar_movimientos on public.vs_movimientos;
 create policy intentar_eliminar_movimientos on public.vs_movimientos for delete to authenticated using (vs_acceso(empresa_id));
 
+-- No se usa "raise exception" aqui a proposito: si la funcion abortara la transaccion, Postgres
+-- deshace TODO lo que paso en ese mismo intento, incluido el insert de abajo, y la bitacora
+-- quedaria siempre vacia. En su lugar se registra el intento y se devuelve null: para un trigger
+-- BEFORE UPDATE/DELETE "for each row", eso hace que esa fila en particular simplemente no se
+-- modifique ni se borre, sin abortar la transaccion ni perder el registro.
 create or replace function public.vs_bloquear_movimiento() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   insert into public.vs_intentos_bloqueados(empresa_id, movimiento_id, operacion, actor)
   values (old.empresa_id, old.id, lower(tg_op), auth.uid());
-  raise exception 'Los movimientos son append-only: no se pueden modificar ni eliminar (id=%)', old.id;
+  raise notice 'Los movimientos son append-only: no se pueden modificar ni eliminar (id=%)', old.id;
+  return null;
 end;
 $$;
 revoke all on function public.vs_bloquear_movimiento() from public, anon;
