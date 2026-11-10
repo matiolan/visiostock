@@ -93,6 +93,38 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  seguridad-sql:
+    name: Seguridad · políticas SQL (RLS y doble factor)
+    runs-on: ubuntu-24.04
+    # PostgreSQL real con lo mínimo de Supabase Auth (supabase/ci/stub_supabase.sql).
+    # Falla si un usuario ve datos de otra empresa o si una sesión sin el segundo factor
+    # (AAL1) accede a datos de una cuenta que tiene el doble factor activo (SCRUM-74).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Cargar esquema y migraciones de seguridad
+        run: |
+          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/10_doble_factor.sql; do
+            psql -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+      - name: Prueba de aislamiento entre empresas
+        run: psql -v ON_ERROR_STOP=1 -q -f supabase/prueba_aislamiento.sql
+      - name: Prueba de doble factor exigido por la base de datos
+        run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_doble_factor.sql
+
   seguridad-codigo:
     name: Seguridad · análisis estático (CodeQL ${{ matrix.lenguaje }})
     runs-on: ubuntu-24.04
