@@ -45,9 +45,11 @@ begin
   end if;
 
   -- Escenario 2: un ajuste trazable corrige el stock sin tocar el movimiento original.
+  -- El stock parte en 50 (fijado en el fixture); los inserts directos a vs_movimientos de arriba
+  -- no pasan por vs_registrar_movimiento, asi que no lo tocan. Solo el ajuste lo cambia: 50-2=48.
   perform public.vs_registrar_ajuste('32000000-0000-0000-0000-000000000001', '33000000-0000-0000-0000-000000000001', -2, 'Conteo fisico encontro 2 unidades menos');
-  if (select stock from public.vs_productos where id = '32000000-0000-0000-0000-000000000001') <> 5 then
-    raise exception 'El stock tras el ajuste no es el esperado (10 - 3 inicial - 2 ajuste = 5)';
+  if (select stock from public.vs_productos where id = '32000000-0000-0000-0000-000000000001') <> 48 then
+    raise exception 'El stock tras el ajuste no es el esperado (50 inicial - 2 ajuste = 48)';
   end if;
   if (select cantidad from public.vs_movimientos where id = '33000000-0000-0000-0000-000000000001') <> 10 then
     raise exception 'El ajuste altero el movimiento original';
