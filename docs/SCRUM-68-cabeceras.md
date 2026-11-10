@@ -11,7 +11,7 @@ Las cuatro cabeceras de `web/vercel.json` se aplican a todas las rutas y archivo
 
 La CSP permite imágenes locales `blob:`/`data:` y el almacenamiento del proyecto `bkedmoshqaulckhvnclx`, así como HTTPS y WebSocket hacia ese mismo proyecto. No permite todos los subdominios de Supabase. Google Fonts utiliza `fonts.googleapis.com` para CSS y `fonts.gstatic.com` para tipografías. La cámara conserva su control normal de permisos.
 
-El 8 de noviembre de 2026 se configuró en Vercel `VITE_VISION_URL=https://class-records-cost-forever.trycloudflare.com`. Esta corrección incorpora ese origen HTTPS exacto a `connect-src`. El pipeline valida su presencia usando la variable del repositorio o esta URL como valor predeterminado. Antes de cambiar el túnel o el proyecto Supabase, se deben actualizar tanto la variable de Vercel como la CSP y repetir la validación. No se debe resolver permitiendo cualquier origen o scripts inline. La disponibilidad del túnel depende del equipo que ejecuta Docker; guardar la URL no demuestra que el servicio esté accesible.
+El 10 de noviembre de 2026 el túnel temporal de Cloudflare se reemplazó por Tailscale Funnel, con la dirección fija `VITE_VISION_URL=https://vastec-portatil.tail86ca65.ts.net` en Vercel. Esta corrección incorpora ese origen HTTPS exacto a `connect-src`. El pipeline valida su presencia usando la variable del repositorio o esta URL como valor predeterminado. Antes de cambiar el túnel o el proyecto Supabase, se deben actualizar tanto la variable de Vercel como la CSP y repetir la validación. No se debe resolver permitiendo cualquier origen o scripts inline. La disponibilidad del túnel depende del equipo que ejecuta Docker; guardar la URL no demuestra que el servicio esté accesible.
 
 ## Publicación y comprobación
 
