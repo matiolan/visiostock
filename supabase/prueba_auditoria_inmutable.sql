@@ -76,4 +76,6 @@ begin
   raise notice 'Auditoria inmutable OK: bloqueo + bitacora, ajustes trazables y cadena de hash funcionan';
 end $$;
 
+select 'OK: bloqueo + bitacora, ajustes trazables y cadena de hash funcionan' as resultado;
+
 rollback;
