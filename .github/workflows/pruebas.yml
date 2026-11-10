@@ -28,7 +28,7 @@ jobs:
       - run: npm test
       - name: Validar cabeceras y CSP
         env:
-          VITE_VISION_URL: ${{ vars.VITE_VISION_URL || 'https://countries-remedies-vip-temporary.trycloudflare.com' }}
+          VITE_VISION_URL: ${{ vars.VITE_VISION_URL || 'https://class-records-cost-forever.trycloudflare.com' }}
         run: node --test tests/cabeceras.test.mjs
       - run: npm run build
   vision:
