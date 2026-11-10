@@ -46,6 +46,7 @@ flowchart LR
 | Web | Solo URL y clave **pública** de Supabase; nada de `service_role` | `web/.env.example`, `web/LEEME_PRIMERO.md` |
 | Web | Validación de tipo y tamaño de foto (JPG/PNG/WebP, ≤ 5 MB) | `web/src/Verificaciones.tsx` |
 | Web | Vista previa dibujada en canvas (sin datos del usuario en `src`) | SCRUM-68 |
+| Autenticación | Registro e inicio con Google (OAuth 2.0 vía Supabase Auth). El retorno solo va a nuestro propio origen (`/acceso`, lista de URLs permitidas en Supabase). Una cuenta nueva no ve datos hasta que el administrador la asigna a una empresa (RLS) | `web/src/lib/acceso-google.ts`, SCRUM-75 |
 | Base de datos | RLS activo en todas las tablas `vs_*`; acceso por empresa con `vs_acceso()` | `supabase/esquema.sql` |
 | Base de datos | Funciones `security definer` con `search_path` fijo | `supabase/esquema.sql` |
 | Base de datos | Movimientos sin políticas de UPDATE/DELETE (registro inmutable) | `supabase/esquema.sql` |
@@ -68,7 +69,7 @@ flowchart LR
 | 6 | Servicio de visión sin límite de tamaño de petición ni límite de frecuencia, y aún sin despliegue HTTPS | Abuso / denegación de servicio | SCRUM-67 | Corregido: 413 por encima de 5 MB, 429 al superar el límite por minuto e imagen Docker publicada por HTTPS con túnel de Cloudflare |
 | 7 | Variables de Supabase en Vercel y prueba de aislamiento entre empresas | Datos de ejemplo en producción / fuga entre empresas | SCRUM-62, SCRUM-69 | Corregido: producción con Supabase real; prueba de aislamiento aprobada |
 | 8 | 4 funciones SECURITY DEFINER ejecutables sin sesión (`anon`): `esquema.sql` solo revocaba a `public` | Superficie expuesta sin autenticación | SCRUM-72 | Corregido: `supabase/03_endurecer_seguridad.sql` (aplicada en producción el 07/11/2026; Security Advisor pasó de 12 a 8 advertencias) + prueba `vision/test_permisos_sql.py` en el pipeline |
-| 9 | Registro público de cuentas habilitado aunque la app no tiene formulario de registro | Creación de cuentas no autorizadas | SCRUM-72 | Corregido el 07/11/2026: registro público deshabilitado; las cuentas se crean en Authentication → Users |
+| 9 | Registro público de cuentas habilitado aunque la app no tiene formulario de registro | Creación de cuentas no autorizadas | SCRUM-72 | Corregido el 07/11/2026: registro público deshabilitado. Desde SCRUM-75 solo se permite el registro con Google (el registro con correo sigue cerrado) y la cuenta nueva no ve datos hasta que el administrador la asigna |
 | 10 | Protección de contraseñas filtradas (HaveIBeenPwned) desactivada | Contraseñas comprometidas | SCRUM-72 | Riesgo aceptado: requiere plan Pro |
 | 11 | 7 funciones ejecutables por usuarios con sesión (aviso del Security Advisor) | — | SCRUM-72 | Riesgo aceptado: son las RPC de la app y cada una valida empresa y rol |
 
