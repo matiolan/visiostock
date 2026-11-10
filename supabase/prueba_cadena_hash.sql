@@ -11,6 +11,11 @@ insert into public.vs_almacenes(id, empresa_id, nombre) values ('41000000-0000-0
 insert into public.vs_productos(id, empresa_id, almacen_id, sku, nombre, stock)
   values ('42000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '41000000-0000-0000-0000-000000000001', 'CAD-1', 'Producto cadena', 100);
 
+-- vs_verificar_cadena exige vs_acceso(), que depende de auth.uid(). Se fija el jwt claim
+-- desde ya (is_local=true dura el resto de la transaccion, sin importar el rol activo), para
+-- que cualquier llamada a vs_verificar_cadena mas abajo encuentre con que validar.
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000c1', true);
+
 -- Caso 1: movimientos "viejos" (como si existieran desde antes de 08/09), sin hash.
 alter table public.vs_movimientos disable trigger vs_movimientos_encadenar;
 insert into public.vs_movimientos(id, empresa_id, producto_id, sentido, cantidad, actor)
