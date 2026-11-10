@@ -59,7 +59,7 @@ $$;
 
 create or replace function public.vs_verificar_cadena(empresa uuid) returns table(valido boolean, primer_alterado uuid)
 language plpgsql security definer set search_path = public, extensions as $$
-declare r record; anterior text := repeat('0', 64);
+declare r public.vs_movimientos; anterior text := repeat('0', 64);
 begin
   if not vs_acceso(empresa) then raise exception 'No autorizado'; end if;
   for r in select * from public.vs_movimientos where empresa_id = empresa order by secuencia asc loop
@@ -80,7 +80,7 @@ $$;
 -- UPDATE, asi que se desactiva mientras dura el sellado.
 alter table public.vs_movimientos disable trigger vs_movimientos_bloquear_update;
 do $$
-declare empresa_rec record; mov_rec record; anterior text; nuevo_hash text;
+declare empresa_rec record; mov_rec public.vs_movimientos; anterior text; nuevo_hash text;
 begin
   for empresa_rec in select distinct empresa_id from public.vs_movimientos where hash_version is distinct from 2 loop
     anterior := repeat('0', 64);

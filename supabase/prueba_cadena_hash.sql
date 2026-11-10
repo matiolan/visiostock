@@ -41,7 +41,7 @@ end $$;
 -- aqui para poder invocarlo dos veces mas abajo y probar el Caso 4).
 alter table public.vs_movimientos disable trigger vs_movimientos_bloquear_update;
 do $$
-declare empresa_rec record; mov_rec record; anterior text; nuevo_hash text;
+declare empresa_rec record; mov_rec public.vs_movimientos; anterior text; nuevo_hash text;
 begin
   for empresa_rec in select distinct empresa_id from public.vs_movimientos where hash_version is distinct from 2 loop
     anterior := repeat('0', 64);
@@ -95,7 +95,7 @@ update public.vs_movimientos set hash_actual = 'manipulado-caso-4' where id = '4
 alter table public.vs_movimientos enable trigger vs_movimientos_bloquear_update;
 
 do $$
-declare empresa_rec record; mov_rec record; anterior text; nuevo_hash text;
+declare empresa_rec record; mov_rec public.vs_movimientos; anterior text; nuevo_hash text;
 begin
   -- Re-ejecuta el sellado tal cual lo haria correr 09_corregir_cadena_hash.sql otra vez.
   for empresa_rec in select distinct empresa_id from public.vs_movimientos where hash_version is distinct from 2 loop
@@ -122,7 +122,7 @@ end $$;
 -- manual real: sellar de nuevo a mano, no con el script, que ya no toca esta empresa).
 alter table public.vs_movimientos disable trigger vs_movimientos_bloquear_update;
 do $$
-declare mov_rec record; anterior text := repeat('0', 64); nuevo_hash text;
+declare mov_rec public.vs_movimientos; anterior text := repeat('0', 64); nuevo_hash text;
 begin
   for mov_rec in select * from public.vs_movimientos where empresa_id = '40000000-0000-0000-0000-000000000001' order by secuencia asc loop
     nuevo_hash := public.vs_hash_movimiento(anterior, mov_rec);
@@ -150,7 +150,7 @@ end $$;
 -- Deja todo valido otra vez antes de probar el bloqueo.
 alter table public.vs_movimientos disable trigger vs_movimientos_bloquear_update;
 do $$
-declare mov_rec record; anterior text := repeat('0', 64); nuevo_hash text;
+declare mov_rec public.vs_movimientos; anterior text := repeat('0', 64); nuevo_hash text;
 begin
   for mov_rec in select * from public.vs_movimientos where empresa_id = '40000000-0000-0000-0000-000000000001' order by secuencia asc loop
     nuevo_hash := public.vs_hash_movimiento(anterior, mov_rec);
