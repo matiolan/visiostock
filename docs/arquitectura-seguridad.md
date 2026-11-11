@@ -47,6 +47,7 @@ flowchart LR
 | Web | Validación de tipo y tamaño de foto (JPG/PNG/WebP, ≤ 5 MB) | `web/src/Verificaciones.tsx` |
 | Web | Vista previa dibujada en canvas (sin datos del usuario en `src`) | SCRUM-68 |
 | Base de datos | RLS activo en todas las tablas `vs_*`; acceso por empresa con `vs_acceso()` | `supabase/esquema.sql` |
+| Autenticación | Doble factor TOTP opcional (Google Authenticator u otra app). Si está activo, la base exige sesión AAL2 en `vs_acceso()`/`vs_admin()`: sin el código no se lee ni escribe nada, ni siquiera llamando a la API directamente | `supabase/10_doble_factor.sql`, `web/src/Seguridad.tsx`, SCRUM-74 |
 | Base de datos | Funciones `security definer` con `search_path` fijo | `supabase/esquema.sql` |
 | Base de datos | Movimientos sin políticas de UPDATE/DELETE (registro inmutable) | `supabase/esquema.sql` |
 | Storage | Bucket privado con límite de tamaño y tipos MIME; escritura solo en la ruta del propio usuario | `supabase/02_verificaciones.sql` |
@@ -55,6 +56,7 @@ flowchart LR
 | Visión | Límite de 5 MB por petición y de análisis por minuto por IP | `vision/app.py` |
 | Repositorio | `.env` ignorado por git; gitleaks en el pipeline | `.gitignore`, SCRUM-65 |
 | Pipeline | CodeQL, npm audit, pip-audit y gitleaks en cada rama y PR; fallan ante hallazgos | SCRUM-65 |
+| Pipeline | Pruebas SQL en PostgreSQL real: aislamiento entre empresas y doble factor exigido por la base | job `seguridad-sql`, SCRUM-74 |
 
 ## Brechas encontradas y seguimiento
 
@@ -71,6 +73,7 @@ flowchart LR
 | 9 | Registro público de cuentas habilitado aunque la app no tiene formulario de registro | Creación de cuentas no autorizadas | SCRUM-72 | Corregido el 07/11/2026: registro público deshabilitado; las cuentas se crean en Authentication → Users |
 | 10 | Protección de contraseñas filtradas (HaveIBeenPwned) desactivada | Contraseñas comprometidas | SCRUM-72 | Riesgo aceptado: requiere plan Pro |
 | 11 | 7 funciones ejecutables por usuarios con sesión (aviso del Security Advisor) | — | SCRUM-72 | Riesgo aceptado: son las RPC de la app y cada una valida empresa y rol |
+| 12 | Acceso solo con contraseña: si se filtra, la cuenta queda expuesta (observación del docente, 10/11/2026) | Robo de cuenta | SCRUM-74 | Corregido: doble factor TOTP opcional, exigido por RLS cuando está activo; probado en el pipeline (`supabase/prueba_doble_factor.sql`) |
 
 ## Cómo se mantiene
 
