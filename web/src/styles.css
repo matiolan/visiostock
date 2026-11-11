@@ -37,6 +37,13 @@ textarea{font:inherit;width:100%;min-height:95px;padding:12px;border:1px solid #
 .incident-list small{color:#8b9ab0}
 .stack-warning{display:flex;gap:10px;align-items:flex-start;background:#fff8ec;border:1px solid #f3dfbc;border-radius:8px;padding:12px;font-size:12px;line-height:1.7;color:#7a5520}
 .incident-list img{width:64px;height:48px;object-fit:cover;border-radius:5px;background:#142640}
+/* SCRUM-74 · doble factor */
+.vs-link-button{background:none;border:0;color:#6c7d94;text-decoration:underline;padding:0;margin-top:10px;cursor:pointer;width:auto}
+.vs-recovery .vs-link-button{width:auto}
+.vs-doble-factor-alta{margin-top:18px}
+.vs-doble-factor-alta ol{font-size:14px;line-height:1.9;color:#475569;padding-left:20px}
+.vs-doble-factor-alta img{display:block;background:white;padding:8px;border:1px solid #e0e7ef;border-radius:8px;margin:12px 0}
+.vs-doble-factor-alta code{word-break:break-all;user-select:all}
 /* SCRUM-75 · inicio con Google */
 .vs-login .vs-google{width:100%;margin:22px 0 4px;background:white;color:#1f2937;border:1px solid #cbd5e1;font-weight:600}
 .vs-login .vs-google:hover{background:#f8fafc}
