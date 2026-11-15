@@ -1,9 +1,10 @@
 import {supabaseBrowser} from './supabase';
+import {mensajeSinEmpresa} from './acceso-google';
 export async function api(body?:Record<string,unknown>){
  const db=supabaseBrowser();const {data:{user},error:authError}=await db.auth.getUser();
  if(authError||!user){window.location.assign('/acceso');throw new Error('Inicia sesión.');}
  const {data:m,error:me}=await db.from('vs_miembros').select('*').eq('user_id',user.id).single();
- if(me||!m)throw new Error('Tu cuenta no tiene una empresa asignada. Contacta al administrador.');
+ if(me||!m)throw new Error(mensajeSinEmpresa(user.email));
  if(!body){const rr=await Promise.all(['vs_empresas','vs_almacenes','vs_productos','vs_movimientos'].map(t=>db.from(t).select('*').limit(1000)));if(rr.some(x=>x.error))throw new Error('No se pudieron cargar los datos. Comprueba que ejecutaste supabase/esquema.sql.');return{usuario:user.email,rol:m.rol,empresas:rr[0].data||[],almacenes:rr[1].data||[],productos:rr[2].data||[],movimientos:rr[3].data||[]};}
  let result;
  switch(body.accion){
