@@ -117,13 +117,17 @@ jobs:
           persist-credentials: false
       - name: Cargar esquema y migraciones de seguridad
         run: |
-          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/10_doble_factor.sql; do
+          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/08_auditoria_inmutable.sql supabase/09_corregir_cadena_hash.sql supabase/10_doble_factor.sql; do
             psql -v ON_ERROR_STOP=1 -q -f "$f"
           done
       - name: Prueba de aislamiento entre empresas
         run: psql -v ON_ERROR_STOP=1 -q -f supabase/prueba_aislamiento.sql
       - name: Prueba de doble factor exigido por la base de datos
         run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_doble_factor.sql
+      - name: Prueba de auditoría inmodificable (SCRUM-21)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_auditoria_inmutable.sql
+      - name: Prueba de cadena de hash (SCRUM-21)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_cadena_hash.sql
 
   seguridad-codigo:
     name: Seguridad · análisis estático (CodeQL ${{ matrix.lenguaje }})
