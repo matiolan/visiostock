@@ -117,7 +117,7 @@ jobs:
           persist-credentials: false
       - name: Cargar esquema y migraciones de seguridad
         run: |
-          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/02_verificaciones.sql supabase/06_camaras_zonas.sql supabase/10_doble_factor.sql supabase/11_horario_laboral.sql; do
+          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/02_verificaciones.sql supabase/06_camaras_zonas.sql supabase/10_doble_factor.sql supabase/11_horario_laboral.sql supabase/03_endurecer_seguridad.sql; do
             psql -v ON_ERROR_STOP=1 -q -f "$f"
           done
       - name: Prueba de aislamiento entre empresas

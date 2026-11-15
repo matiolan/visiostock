@@ -21,10 +21,16 @@ create table if not exists public.vs_horarios_laborales (
   hora_fin time not null default '19:00',
   creado_en timestamptz not null default now(),
   check (hora_inicio < hora_fin),
-  check (dias_semana <@ array[1,2,3,4,5,6,7]::smallint[])
+  check (dias_semana <@ array[1,2,3,4,5,6,7]::smallint[]),
+  check (cardinality(dias_semana) between 1 and 7)
 );
 create unique index if not exists vs_horarios_empresa_general on public.vs_horarios_laborales(empresa_id) where zona_id is null;
 create unique index if not exists vs_horarios_por_zona on public.vs_horarios_laborales(zona_id) where zona_id is not null;
+-- Si zona_id no es null, debe pertenecer a la MISMA empresa (evita que un horario quede
+-- apuntando a una zona de otra empresa; con zona_id null esta FK no aplica).
+alter table public.vs_horarios_laborales drop constraint if exists vs_horario_zona_empresa;
+alter table public.vs_horarios_laborales add constraint vs_horario_zona_empresa
+  foreign key (zona_id, empresa_id) references public.vs_zonas(id, empresa_id);
 alter table public.vs_horarios_laborales enable row level security;
 drop policy if exists leer_horarios on public.vs_horarios_laborales;
 create policy leer_horarios on public.vs_horarios_laborales for select to authenticated using (vs_acceso(empresa_id));
@@ -63,7 +69,7 @@ begin
     return false;
   end if;
   if zona is not null then
-    select * into h from public.vs_horarios_laborales where zona_id = zona;
+    select * into h from public.vs_horarios_laborales where zona_id = zona and empresa_id = empresa;
   end if;
   if h.id is null then
     select * into h from public.vs_horarios_laborales where empresa_id = empresa and zona_id is null;

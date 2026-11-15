@@ -16,8 +16,11 @@ export async function api(body?:Record<string,unknown>){
  case 'movimiento':result=await db.rpc('vs_registrar_movimiento',{p:body.producto,s:body.sentido,n:body.cantidad});break;
  case 'asignar':result=await db.rpc('vs_asignar_cliente',{correo:String(body.email).trim().toLowerCase(),empresa:body.empresa});break;
  case 'horario':{
- const fila={empresa_id:body.empresa,dias_semana:body.dias,hora_inicio:body.inicio,hora_fin:body.fin};
- const existente=await db.from('vs_horarios_laborales').select('id').eq('empresa_id',body.empresa).is('zona_id',null).maybeSingle();
+ const zona=body.zona?String(body.zona):null;
+ const fila={empresa_id:body.empresa,zona_id:zona,dias_semana:body.dias,hora_inicio:body.inicio,hora_fin:body.fin};
+ let busq=db.from('vs_horarios_laborales').select('id').eq('empresa_id',body.empresa);
+ busq=zona?busq.eq('zona_id',zona):busq.is('zona_id',null);
+ const existente=await busq.maybeSingle();
  result=existente.data?await db.from('vs_horarios_laborales').update(fila).eq('id',existente.data.id):await db.from('vs_horarios_laborales').insert(fila);break;}
  case 'feriado':result=await db.from('vs_feriados').insert({empresa_id:body.empresa,fecha:body.fecha,descripcion:String(body.descripcion||'').trim()});break;
  default:throw new Error('Operación no disponible.');}
