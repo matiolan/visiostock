@@ -25,3 +25,10 @@ $$;
 grant usage on schema auth to anon, authenticated;
 grant execute on function auth.jwt(), auth.uid() to anon, authenticated;
 grant usage on schema public to anon, authenticated;
+
+-- Mínimo de Supabase Storage que usan las funciones que validan rutas de evidencia
+-- (p.ej. vs_registrar_movimiento, vs_guardar_verificacion) y el insert de 02_verificaciones.sql.
+create schema storage;
+create table storage.buckets (id text primary key, name text not null, public boolean not null default false, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text not null, created_at timestamptz not null default now());
+grant usage on schema storage to anon, authenticated;

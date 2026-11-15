@@ -8,8 +8,19 @@ export async function movimientosDeVideo(file:File,clase:string,linea:number):Pr
  const form=new FormData();form.append('video',file);form.append('clase',clase);form.append('linea',String(linea));
  return respuesta(await fetch(visionURL+'/movimientos',{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`},body:form,signal:AbortSignal.timeout(180000)}));
 }
-export async function registrarMovimiento(producto:string,sentido:string){
- const {error}=await supabaseBrowser().rpc('vs_registrar_movimiento',{p:producto,s:sentido,n:1});
+// SCRUM-26: el video ya captura la imagen de la caja; se sube como evidencia si hay espacio
+// (si falla la subida, el movimiento se registra igual, sin evidencia, porque es opcional).
+export async function registrarMovimiento(producto:string,sentido:string,empresaId:string,imagenBase64?:string|null){
+ const db=supabaseBrowser();let foto:string|null=null;
+ if(imagenBase64){
+  const {data:{user}}=await db.auth.getUser();
+  if(user){
+   const bytes=Uint8Array.from(atob(imagenBase64),c=>c.charCodeAt(0));const path=`${empresaId}/${user.id}/${crypto.randomUUID()}.jpg`;
+   const {error:subida}=await db.storage.from('vs-evidencias').upload(path,new Blob([bytes],{type:'image/jpeg'}),{contentType:'image/jpeg',upsert:false});
+   if(!subida)foto=path;
+  }
+ }
+ const {error}=await db.rpc('vs_registrar_movimiento',{p:producto,s:sentido,n:1,foto});
  if(error)throw new Error(error.message.includes('Stock insuficiente')?'Stock insuficiente para registrar una de las salidas.':'No se pudo registrar el movimiento.');
 }
 // HU-07: la imagen de la caja sin código legible se guarda como evidencia privada para revisarla.
