@@ -117,13 +117,15 @@ jobs:
           persist-credentials: false
       - name: Cargar esquema y migraciones de seguridad
         run: |
-          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/10_doble_factor.sql; do
+          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/02_verificaciones.sql supabase/06_camaras_zonas.sql supabase/10_doble_factor.sql supabase/11_horario_laboral.sql supabase/03_endurecer_seguridad.sql; do
             psql -v ON_ERROR_STOP=1 -q -f "$f"
           done
       - name: Prueba de aislamiento entre empresas
         run: psql -v ON_ERROR_STOP=1 -q -f supabase/prueba_aislamiento.sql
       - name: Prueba de doble factor exigido por la base de datos
         run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_doble_factor.sql
+      - name: Prueba de horario laboral y zona en movimientos (SCRUM-26)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_horario_laboral.sql
 
   seguridad-codigo:
     name: Seguridad · análisis estático (CodeQL ${{ matrix.lenguaje }})
