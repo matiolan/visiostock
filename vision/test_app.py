@@ -29,6 +29,16 @@ class VisionTests(unittest.TestCase):
   model=self.model()
   with patch.object(mod,'autorizar') as auth:r=self.request()
   self.assertEqual(r.status_code,200);self.assertEqual(r.json()['conteo'],2);self.assertEqual(r.json()['ancho'],40);self.assertEqual(r.json()['alto'],30);auth.assert_called_once_with('test',PID);self.assertEqual(model.predict.call_args.kwargs['classes'],[0])
+ def test_marca_cajas_danadas(self):
+  model=self.model();model.names={0:'caja',1:'dano'};res=model.predict.return_value[0]
+  res.boxes.xyxy.tolist.return_value=[[0,0,10,10],[20,0,30,10],[3,3,6,6]];res.boxes.conf.tolist.return_value=[.9,.8,.7];res.boxes.cls.tolist.return_value=[0,0,1]
+  with patch.object(mod,'autorizar'):r=self.request()
+  j=r.json();self.assertEqual(r.status_code,200);self.assertEqual(model.predict.call_args.kwargs['classes'],[0,1])
+  self.assertEqual(j['conteo'],2);self.assertEqual(j['danadas'],1);self.assertEqual([c['danada'] for c in j['cajas']],[True,False]);self.assertEqual(len(j['danos']),1)
+ def test_sin_clase_dano_no_informa_danos(self):
+  self.model()
+  with patch.object(mod,'autorizar'):j=self.request().json()
+  self.assertNotIn('danadas',j);self.assertNotIn('danada',j['cajas'][0])
  def test_clase_ajena(self):
   self.model()
   with patch.object(mod,'autorizar'):self.assertEqual(self.request(clase='tomatodo').status_code,422)

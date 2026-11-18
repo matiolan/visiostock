@@ -38,6 +38,16 @@ POR_MINUTO = int(os.getenv('VISION_LIMITE_POR_MINUTO', '20'))
 VISITAS: dict[str, deque] = {}
 LIMITADAS = {'/analizar', '/identificar', '/movimientos', '/manipulacion', '/camaras/probar'}  # rutas que consultan Supabase y usan CPU
 MAX_SEGUNDOS_VIDEO = 30
+# Si el modelo tiene esta clase (rasgón, abolladura, hueco, humedad), cada caja con un daño
+# dentro se informa como dañada. No se ofrece para contar: no va en VISION_CLASES.
+CLASE_DANO = os.getenv('VISION_CLASE_DANO', 'dano')
+
+
+def dano_en_caja(dano: dict, caja: dict, margen: float = .1) -> bool:
+    """El centro del daño cae dentro de la caja, con un margen del 10 % de su tamaño."""
+    cx, cy = (dano['x1'] + dano['x2']) / 2, (dano['y1'] + dano['y2']) / 2
+    mx, my = (caja['x2'] - caja['x1']) * margen, (caja['y2'] - caja['y1']) * margen
+    return caja['x1'] - mx <= cx <= caja['x2'] + mx and caja['y1'] - my <= cy <= caja['y2'] + my
 
 
 def espera_frecuencia(ip: str) -> int:
@@ -201,22 +211,32 @@ def analizar(imagen: UploadFile = File(...), producto: UUID = Form(...), clase: 
         raise HTTPException(422, 'Selecciona una clase habilitada en el modelo.')
     imagen_rgb = abrir_imagen(imagen.file.read(5 * 1024 * 1024 + 1))
     ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
+    ids_dano = [i for i, nombre in MODELO.names.items() if nombre == CLASE_DANO and nombre != clase]
     if not LOCK.acquire(blocking=False):
         raise HTTPException(429, 'El detector está procesando otra imagen. Inténtalo en unos segundos.')
     try:
-        resultado = MODELO.predict(imagen_rgb, classes=ids, conf=.5, max_det=500, verbose=False)[0]
-        cajas = []
+        resultado = MODELO.predict(imagen_rgb, classes=ids + ids_dano, conf=.5, max_det=500, verbose=False)[0]
+        cajas, danos = [], []
         if resultado.boxes is not None:
-            for xy, confianza in zip(resultado.boxes.xyxy.tolist(), resultado.boxes.conf.tolist()):
-                x1, y1, x2, y2 = xy
-                cajas.append({'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'confianza': float(confianza)})
+            xyxy, confs = resultado.boxes.xyxy.tolist(), resultado.boxes.conf.tolist()
+            clases = resultado.boxes.cls.tolist() if ids_dano else [ids[0]] * len(xyxy)
+            for (x1, y1, x2, y2), confianza, c in zip(xyxy, confs, clases):
+                caja = {'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'confianza': float(confianza)}
+                (danos if int(c) in ids_dano else cajas).append(caja)
+        if ids_dano:
+            for caja in cajas:
+                caja['danada'] = any(dano_en_caja(d, caja) for d in danos)
         # HU-08: en una foto solo se puede juzgar el apilamiento; caídas y golpes requieren video.
         altura = altura_maxima_pila([Deteccion((c['x1'], c['y1'], c['x2'], c['y2']), c['confianza']) for c in cajas])
         maximo = Umbrales().max_apilado
-        return {'conteo': len(cajas), 'cajas': cajas, 'clase': clase,
-                'modelo': os.getenv('VISION_MODELO_NOMBRE', 'Detector del almacén')[:160],
-                'ancho': imagen_rgb.width, 'alto': imagen_rgb.height,
-                'apilamiento': {'altura': altura, 'maximo': maximo, 'alerta': altura > maximo}}
+        respuesta = {'conteo': len(cajas), 'cajas': cajas, 'clase': clase,
+                     'modelo': os.getenv('VISION_MODELO_NOMBRE', 'Detector del almacén')[:160],
+                     'ancho': imagen_rgb.width, 'alto': imagen_rgb.height,
+                     'apilamiento': {'altura': altura, 'maximo': maximo, 'alerta': altura > maximo}}
+        if ids_dano:
+            respuesta['danadas'] = sum(c['danada'] for c in cajas)
+            respuesta['danos'] = danos
+        return respuesta
     except Exception:
         raise HTTPException(503, 'No se pudo completar el análisis con el modelo instalado.') from None
     finally:
