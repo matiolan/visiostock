@@ -106,3 +106,44 @@ test('movimiento reducido: la simulación empieza en pausa', async () => {
   assert.ok(await pagina.getByRole('button', { name: 'Reproducir' }).isVisible());
   await pagina.close();
 });
+
+test('preguntas: el acordeón abre una respuesta a la vez', async () => {
+  const { pagina } = await abrir(1280, 800);
+  const primera = pagina.locator('#pregunta-0'), segunda = pagina.locator('#pregunta-1');
+  assert.equal(await primera.getAttribute('aria-expanded'), 'true');
+  await segunda.click();
+  assert.equal(await segunda.getAttribute('aria-expanded'), 'true');
+  assert.equal(await primera.getAttribute('aria-expanded'), 'false');
+  await pagina.locator('#respuesta-1 p').waitFor({ state: 'visible' }); // se abre con una transición corta
+  // El pie ya no repite el acceso: la barra fija lo tiene siempre a mano.
+  assert.equal(await pagina.locator('footer a[href="/acceso"]').count(), 0);
+  await pagina.close();
+});
+
+// SCRUM-78: páginas de acceso y recuperación (el build del pipeline usa una URL de Supabase de prueba).
+for (const ruta of ['acceso', 'recuperar']) {
+  for (const [nombre, ancho, alto] of TAMANOS) {
+    test(`/${ruta} en ${nombre} (${ancho}px): sin desplazamiento horizontal y con sus botones`, async () => {
+      const pagina = await navegador.newPage({ viewport: { width: ancho, height: alto } });
+      const errores = [];
+      pagina.on('pageerror', e => errores.push(e.message));
+      await pagina.goto(`${DIRECCION}${ruta}`);
+      await pagina.waitForSelector('.acceso-contenido h1');
+      await pagina.waitForTimeout(1200);
+      assert.equal(await pagina.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), 0);
+      if (ruta === 'acceso') {
+        assert.ok(await pagina.getByRole('button', { name: 'Continuar con Google' }).isVisible());
+        assert.ok(await pagina.getByRole('link', { name: 'Recuperar contraseña' }).isVisible());
+        assert.ok(await pagina.getByRole('button', { name: 'Entrar', exact: true }).isVisible());
+      } else {
+        assert.ok(await pagina.getByRole('button', { name: 'Enviar enlace' }).isVisible());
+        assert.ok(await pagina.getByRole('link', { name: 'Volver a iniciar sesión' }).isVisible());
+      }
+      // La cámara en vivo acompaña en pantallas anchas y se oculta en celular.
+      assert.equal(await pagina.locator('.acceso-camara').isVisible(), ancho > 900);
+      await pagina.screenshot({ path: `${CAPTURAS}${ruta}-${nombre}.png` });
+      assert.deepEqual(errores, []);
+      await pagina.close();
+    });
+  }
+}
