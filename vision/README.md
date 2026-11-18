@@ -18,6 +18,22 @@ Copy-Item vision/.env.example vision/.env
 
 Configura `vision/.env` con la URL y clave pública del MISMO Supabase de la web. No uses service_role. Añade los pesos de tu modelo en `vision/models/best.pt` y escribe en `VISION_CLASES` los nombres exactos de sus clases. `VISION_MODELO_NOMBRE` debe identificar la versión evaluada del detector.
 
+### Cajas dañadas
+
+Si el modelo tiene la clase `VISION_CLASE_DANO` (por defecto `dano`), `/analizar` también busca daños: rasgones, abolladuras, huecos y humedad. Una caja con el centro de un daño dentro de ella se marca como `danada`, y la respuesta agrega `danadas` (cuántas cajas) y `danos` (los recuadros). La web dibuja esas cajas en rojo y muestra un aviso. Esa clase no se pone en `VISION_CLASES`, así que no se ofrece para contar. Un modelo sin esa clase funciona como antes.
+
+El modelo v2 (YOLO11s, clases `caja` y `dano`) se entrenó con 10.679 imágenes de 12 datasets públicos de Roboflow, más 2.500 fotos de COCO sin cajas como negativas. Comparado con el v1 (YOLOv8n, solo cajas), en el split de prueba de 274 imágenes:
+
+| | v1 | v2 |
+|---|---|---|
+| mAP50 cajas | 92,0 % | 92,1 % |
+| Precisión del conteo | 84,0 % | 83,1 % |
+| Conteo exacto por foto | 58,0 % | 59,9 % |
+| Fotos sin cajas con una caja falsa (1.000 de COCO no usadas) | 40,2 % | 1,1 % |
+| Fotos con personas con una caja falsa (193) | 31,1 % | 1,0 % |
+| mAP50 daños (validación) | — | 85,1 % |
+| Tiempo por foto en CPU (mediana) | 149 ms | 328 ms |
+
 No se incluyen pesos ni un conjunto de datos entrenado. No se descarga un modelo genérico para presentarlo como detector de productos de Lali. Antes de usarlo con stock real, valida el modelo con imágenes representativas, productos separados, iluminación y distancias del almacén. Una clase genérica como caja no identifica automáticamente el SKU.
 
 Inicia el servicio:
