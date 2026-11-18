@@ -7,19 +7,22 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --experimental-strip-types --test tests/csv-inventario.test.mjs tests/reporte-semanal.test.mjs tests/sku.test.mjs tests/dispositivos.test.mjs tests/incidencias.test.mjs tests/doble-factor.test.mjs tests/acceso-google.test.mjs"
+    "test": "node --experimental-strip-types --test tests/csv-inventario.test.mjs tests/reporte-semanal.test.mjs tests/sku.test.mjs tests/dispositivos.test.mjs tests/incidencias.test.mjs tests/doble-factor.test.mjs tests/acceso-google.test.mjs tests/simulacion.test.mjs tests/navegacion.test.mjs",
+    "test:e2e": "node --test --test-concurrency=1 e2e/landing.e2e.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/archivo": "5.3.0",
     "@supabase/supabase-js": "2.118.0",
+    "lucide-react": "^0.468.0",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "lucide-react": "^0.468.0"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "playwright": "1.63.0",
     "typescript": "~5.9.3",
-    "vite": "^7.2.0",
-    "@vitejs/plugin-react": "^5.0.0"
+    "vite": "^7.2.0"
   }
 }
