@@ -18,7 +18,7 @@ Copy-Item vision/.env.example vision/.env
 
 Configura `vision/.env` con la URL y clave pública del MISMO Supabase de la web. No uses service_role. Añade los pesos de tu modelo en `vision/models/best.pt` y escribe en `VISION_CLASES` los nombres exactos de sus clases. `VISION_MODELO_NOMBRE` debe identificar la versión evaluada del detector.
 
-### Cajas dañadas
+### Cajas dañadas (SCRUM-77)
 
 Si el modelo tiene la clase `VISION_CLASE_DANO` (por defecto `dano`), `/analizar` también busca daños: rasgones, abolladuras, huecos y humedad. Una caja con el centro de un daño dentro de ella se marca como `danada`, y la respuesta agrega `danadas` (cuántas cajas) y `danos` (los recuadros). La web dibuja esas cajas en rojo y muestra un aviso. Esa clase no se pone en `VISION_CLASES`, así que no se ofrece para contar. Un modelo sin esa clase funciona como antes.
 
