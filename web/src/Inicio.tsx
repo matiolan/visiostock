@@ -1,16 +1,211 @@
-import { ArrowUpRight, ArrowRight, ScanLine, Package, Layers3, ShieldCheck, Camera, ClipboardCheck, BarChart3, Eye, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+// SCRUM-76 · Página de inicio: simulación de la cámara, menú interactivo y diseño responsive.
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Menu, Pause, Play, ScanLine, X } from 'lucide-react';
+import '@fontsource-variable/archivo/wdth.css';
 import './inicio.css';
+import Simulacion, { type Resumen } from './landing/Simulacion';
+import { anclaValida, seccionActiva } from './lib/navegacion';
+import type { Escenario } from './lib/simulacion';
+
+const SECCIONES = [
+  { id: 'simulacion', texto: 'Simulación' },
+  { id: 'funciona', texto: 'Cómo funciona' },
+  { id: 'seguridad', texto: 'Seguridad' },
+  { id: 'preguntas', texto: 'Preguntas' },
+];
+
+const ESCENARIOS: { id: Escenario; texto: string; detalle: string }[] = [
+  { id: 'conteo', texto: 'Conteo', detalle: 'Cada caja que cruza la línea suma una entrada o una salida, y el stock se actualiza solo.' },
+  { id: 'fuera', texto: 'Fuera de horario', detalle: 'Son las 18:57. Desde las 19:00, cualquier caja que se mueva queda marcada como alerta para el gerente.' },
+  { id: 'manipulacion', texto: 'Manipulación', detalle: 'Si una caja se cae de la faja, la cámara lo detecta y lo registra antes de que llegue al conteo.' },
+];
+
+const PASOS = [
+  ['Registra tu inventario', 'Crea tus almacenes y zonas, y carga tus productos desde un archivo CSV. Cada empresa trabaja en su propio espacio.'],
+  ['La cámara observa', 'Graba o sube un video del muelle de carga. El servicio de visión reconoce las cajas y su código, cuadro por cuadro.'],
+  ['VisioStock cuenta y compara', 'Las cajas que cruzan la línea se registran como entradas o salidas, y el conteo se contrasta con el stock del sistema.'],
+  ['Revisas la evidencia', 'Las diferencias, caídas y movimientos fuera de horario llegan a Alertas con su foto, listas para que decidas.'],
+];
+
+const CONTROLES = [
+  ['Cada empresa ve solo lo suyo', 'Las reglas de acceso de la base de datos separan los datos por empresa. Una cuenta nueva no ve nada hasta que el administrador la asigna.'],
+  ['Verificación en dos pasos', 'Activa Google Authenticator en tu cuenta. Sin el código de 6 dígitos no se leen ni se cambian datos, ni siquiera llamando a la API.'],
+  ['Entra con Google', 'Usa tu cuenta de Google en lugar de otra contraseña más que recordar.'],
+  ['Revisado en cada cambio', 'Cada cambio pasa por análisis de código, revisión de dependencias, búsqueda de secretos y pruebas de las reglas de acceso antes de publicarse.'],
+];
+
+const PREGUNTAS = [
+  ['¿Cómo accedo al inventario de mi empresa?', 'Entra con la cuenta que te asignó el administrador o regístrate con Google y pídele que te asigne a tu empresa.'],
+  ['¿Puedo cargar el inventario que ya tengo?', 'Sí. En Inventario puedes importar un CSV con SKU, nombre y stock inicial; la vista previa marca los errores antes de guardar.'],
+  ['¿La cámara reconoce cualquier producto?', 'Reconoce las clases para las que se entrenó el modelo (hoy, cajas) y lee códigos QR o de barras. Si no puede leer el código, el movimiento queda para revisión manual con su foto.'],
+  ['¿Una diferencia cambia el stock automáticamente?', 'No. La verificación deja evidencia y una alerta. Los ajustes se registran como entradas o salidas para que todo quede trazable.'],
+];
 
 export default function Inicio() {
   const [menu, setMenu] = useState(false);
-  return <div className="home"><header className="home-nav"><a className="home-brand" href="/" aria-label="VisioStock, inicio"><span><ScanLine size={24}/></span>Visio<span className="brand-light">Stock</span></a><button className="home-menu" onClick={() => setMenu(!menu)} aria-label="Abrir navegación" aria-expanded={menu}>{menu ? <X/> : <Menu/>}</button><nav className={menu ? 'open' : ''} aria-label="Principal"><a href="#plataforma" onClick={() => setMenu(false)}>La plataforma</a><a href="#proceso" onClick={() => setMenu(false)}>Cómo funciona</a><a href="#tecnologia" onClick={() => setMenu(false)}>Tecnología</a><a href="/acceso" className="home-login">Iniciar sesión <ArrowUpRight size={16}/></a></nav></header>
-    <main><section className="home-hero"><div className="hero-copy"><p className="home-kicker"><span/> GESTIÓN DE INVENTARIO + VISIÓN ARTIFICIAL</p><h1>Tu inventario,<br/>con otra <em>visión.</em></h1><p className="home-lead">Conecta lo que tienes registrado con lo que puedes ver. Organiza productos, verifica existencias y conserva evidencia de cada revisión de tu almacén.</p><div className="home-actions"><a className="home-primary" href="/acceso">Entrar a mi empresa <ArrowUpRight size={18}/></a><a className="home-text" href="#proceso">Conoce el proceso <ArrowRight size={16}/></a></div><div className="hero-foot"><ShieldCheck size={18}/><span>Un espacio privado para cada empresa.<br/><b>Una operación más fácil de seguir.</b></span></div></div>
-      <div className="warehouse-visual" role="img" aria-label="Ilustración de una revisión visual de cajas en un almacén; ejemplo explicativo"><div className="visual-top"><span><span className="visual-dot"/> VISIOSTOCK / INSPECCIÓN VISUAL</span><ScanLine size={18}/></div><div className="warehouse-scene"><div className="scene-grid"/><div className="shelf"><div className="shelf-row">{[1,2,3].map(n => <div className="parcel" key={n}><span/><i/><small>VS / {String(n).padStart(2,'0')}</small></div>)}</div><div className="shelf-row bottom">{[4,5].map(n => <div className="parcel" key={n}><span/><i/><small>VS / {String(n).padStart(2,'0')}</small></div>)}</div></div><div className="scan-frame"><span>ÁREA DE VERIFICACIÓN</span><i className="scan-beam"/></div><div className="scene-label"><Eye size={16}/> Captura · Conteo · Comparación</div></div><div className="visual-bottom"><div><small>DEL REGISTRO A LA EVIDENCIA</small><strong>Verifica antes de ajustar.</strong></div><span className="example-tag">Ilustración del proceso</span></div></div>
-    </section><div className="home-strip"><span>UN FLUJO CONECTADO</span><p><Package size={18}/> Inventario</p><i/><p><Camera size={18}/> Evidencia visual</p><i/><p><ClipboardCheck size={18}/> Verificación</p><i/><p><BarChart3 size={18}/> Seguimiento</p></div>
-    <section id="plataforma" className="home-section"><div className="section-heading"><div><p className="home-kicker">01 / LA PLATAFORMA</p><h2>El almacén completo.<br/>En un mismo lugar.</h2></div><p>VisioStock reúne la gestión diaria y la revisión visual del inventario. Cada registro conserva el contexto que necesitas para entender tu operación.</p></div><div className="capability-grid">{[{icon:Package,n:'01',title:'Inventario organizado',text:'Productos por empresa y almacén, búsqueda por SKU e importación y exportación de archivos CSV.'},{icon:ScanLine,n:'02',title:'Verificación visual',text:'Captura desde la cámara o carga una fotografía. Compara el conteo registrado con el resultado de tu revisión.'},{icon:Layers3,n:'03',title:'Movimientos e historial',text:'Registra entradas y salidas, consulta verificaciones y revisa diferencias sin perder la evidencia.'},{icon:ShieldCheck,n:'04',title:'Acceso por empresa',text:'El cliente trabaja con los datos de su empresa. La administración organiza empresas, almacenes y accesos.'}].map(c => <article key={c.n}><div><c.icon size={24}/><span>{c.n}</span></div><h3>{c.title}</h3><p>{c.text}</p></article>)}</div></section>
-    <section id="proceso" className="home-section process-section"><div className="section-heading"><div><p className="home-kicker">02 / CÓMO FUNCIONA</p><h2>Del producto registrado<br/>a una revisión con evidencia.</h2></div><a className="home-text" href="/acceso">Ir al espacio de trabajo <ArrowUpRight size={18}/></a></div><ol className="process-steps">{[['Organiza','Registra la empresa, sus almacenes y productos. Carga tu inventario inicial mediante CSV.'],['Observa','Selecciona un producto y toma una foto del área que vas a revisar, o carga una imagen.'],['Compara','Revisa el conteo manual o asistido por un modelo configurado y contrástalo con el stock del sistema.'],['Da seguimiento','Guarda la verificación, consulta la diferencia y documenta la revisión de la alerta.']].map(([title,text],i) => <li key={title}><span>0{i+1}</span><h3>{title}</h3><p>{text}</p></li>)}</ol><p className="process-note"><ScanLine size={20}/>El conteo automático requiere un servicio de visión activo y un modelo validado para los objetos del almacén. Una verificación no modifica el stock por sí sola.</p></section>
-    <section id="tecnologia" className="technology-section"><div><p className="home-kicker">03 / TECNOLOGÍA CON PROPÓSITO</p><h2>La imagen aporta evidencia.<br/>El sistema conserva el contexto.</h2><p>Una aplicación web para gestionar la operación, Supabase para proteger los datos y un servicio Python independiente para procesar imágenes con YOLO.</p><a className="home-primary light" href="/acceso">Acceder a VisioStock <ArrowUpRight size={18}/></a></div><div className="architecture-flow"><article><span>01</span><div><h3>Web + cámara</h3><p>Productos, capturas y revisiones.</p></div><Camera size={22}/></article><div className="flow-line"/><article><span>02</span><div><h3>Servicio de visión</h3><p>Detecciones por clase y confianza.</p></div><ScanLine size={22}/></article><div className="flow-line"/><article><span>03</span><div><h3>Datos y trazabilidad</h3><p>Stock, fotografías e historial por empresa.</p></div><ShieldCheck size={22}/></article></div></section>
-    <section className="home-section faq-section"><div><p className="home-kicker">ANTES DE ENTRAR</p><h2>Lo que necesitas saber.</h2><p>Una plataforma pensada para revisar el inventario con criterio y evidencia.</p></div><div>{[['¿Cómo accedo al inventario de mi empresa?','Inicia sesión con la cuenta autorizada por el administrador. Tu empresa debe tener al menos un almacén y productos registrados para comenzar.'],['¿Puedo cargar el inventario que ya tengo?','Sí. Dentro de Inventario puedes importar un CSV con SKU, nombre y stock inicial. La vista previa detecta errores antes de guardar los productos nuevos.'],['¿La cámara reconoce cualquier producto?','El reconocimiento depende de las clases y la validación del modelo instalado. La foto debe corresponder al producto seleccionado. También puedes registrar un conteo manual, identificado como tal.'],['¿Una diferencia cambia el stock automáticamente?','No. La verificación deja una evidencia y una alerta de diferencia. Los ajustes se registran mediante entradas o salidas autorizadas para mantener la trazabilidad.']].map(([q,a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
-    <section className="home-cta"><div><p className="home-kicker">TU SIGUIENTE REVISIÓN EMPIEZA AQUÍ</p><h2>Menos dudas.<br/>Más visibilidad.</h2></div><a className="home-primary" href="/acceso">Iniciar sesión <ArrowUpRight size={20}/></a></section></main><footer className="home-footer"><a className="home-brand" href="/">Visio<span className="brand-light">Stock</span></a><p>Gestión de inventario con visión artificial.</p><a href="/acceso">Acceso a la plataforma <ArrowUpRight size={15}/></a></footer></div>;
+  const [activa, setActiva] = useState<string | null>(null);
+  const [escenario, setEscenario] = useState<Escenario>('conteo');
+  const [pausado, setPausado] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const [datos, setDatos] = useState<Resumen | null>(null);
+  const [paso, setPaso] = useState(0);
+  const enlaces = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const indicador = useRef<HTMLSpanElement>(null);
+  const botonMenu = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const pasos = useRef<(HTMLLIElement | null)[]>([]);
+
+  // Sección activa y paso visible según el desplazamiento.
+  useEffect(() => {
+    let pendiente = 0;
+    const revisar = () => {
+      pendiente = 0;
+      const y = window.scrollY;
+      setActiva(seccionActiva(SECCIONES.map(s => ({ id: s.id, top: (document.getElementById(s.id)?.getBoundingClientRect().top ?? Infinity) + y })), y));
+      const mitad = y + window.innerHeight * 0.55;
+      let p = 0;
+      pasos.current.forEach((el, i) => { if (el && el.getBoundingClientRect().top + y <= mitad) p = i; });
+      setPaso(p);
+    };
+    const alDesplazar = () => { if (!pendiente) pendiente = requestAnimationFrame(revisar); };
+    revisar();
+    window.addEventListener('scroll', alDesplazar, { passive: true });
+    window.addEventListener('resize', alDesplazar);
+    return () => { window.removeEventListener('scroll', alDesplazar); window.removeEventListener('resize', alDesplazar); cancelAnimationFrame(pendiente); };
+  }, []);
+
+  // La línea bajo el menú se desliza hasta el enlace activo.
+  useEffect(() => {
+    const el = activa ? enlaces.current[activa] : null, barra = indicador.current;
+    if (!barra) return;
+    if (!el) { barra.style.opacity = '0'; return; }
+    barra.style.opacity = '1';
+    barra.style.width = `${el.offsetWidth}px`;
+    barra.style.transform = `translateX(${el.offsetLeft}px)`;
+  }, [activa]);
+
+  // Menú de celular: Escape lo cierra, el foco entra y vuelve al botón, y la página no se desplaza detrás.
+  useEffect(() => {
+    if (!menu) return;
+    document.body.style.overflow = 'hidden';
+    panel.current?.querySelector<HTMLElement>('nav a')?.focus();
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setMenu(false); botonMenu.current?.focus(); }
+      if (e.key === 'Tab' && panel.current) { // el foco no sale del panel mientras está abierto
+        const focos = [...panel.current.querySelectorAll<HTMLElement>('a,button')];
+        const primero = focos[0], ultimo = focos[focos.length - 1];
+        if (e.shiftKey && document.activeElement === primero) { e.preventDefault(); ultimo.focus(); }
+        else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primero.focus(); }
+      }
+    };
+    document.addEventListener('keydown', tecla);
+    return () => { document.body.style.overflow = ''; document.removeEventListener('keydown', tecla); };
+  }, [menu]);
+
+  const ir = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    const id = anclaValida(e.currentTarget.getAttribute('href') ?? '');
+    const destino = id ? document.getElementById(id) : null;
+    if (!destino) return;
+    e.preventDefault();
+    setMenu(false);
+    const suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: destino.getBoundingClientRect().top + window.scrollY - 72, behavior: suave ? 'smooth' : 'auto' });
+    history.replaceState(null, '', `#${id}`);
+  }, []);
+
+  const actual = ESCENARIOS.find(x => x.id === escenario)!;
+
+  return <div className="vs-home">
+    <a className="saltar" href="#simulacion" onClick={ir}>Saltar al contenido</a>
+    <header className="barra">
+      <a className="marca" href="/" aria-label="VisioStock, inicio"><span className="marca-ojo" aria-hidden="true"><ScanLine size={20} /></span>VisioStock</a>
+      <nav className="menu" aria-label="Secciones">
+        {SECCIONES.map(s => <a key={s.id} href={`#${s.id}`} onClick={ir} ref={el => { enlaces.current[s.id] = el; }} aria-current={activa === s.id ? 'true' : undefined}>{s.texto}</a>)}
+        <span className="menu-linea" ref={indicador} aria-hidden="true" />
+      </nav>
+      <a className="boton boton-claro barra-entrar" href="/acceso">Entrar</a>
+      <button ref={botonMenu} className="menu-boton" onClick={() => setMenu(true)} aria-expanded={menu} aria-controls="menu-movil" aria-label="Abrir menú"><Menu size={22} /></button>
+    </header>
+
+    <div id="menu-movil" ref={panel} className={menu ? 'panel abierto' : 'panel'} role="dialog" aria-modal="true" aria-label="Menú" hidden={!menu}>
+      <button className="panel-cerrar" onClick={() => { setMenu(false); botonMenu.current?.focus(); }} aria-label="Cerrar menú"><X size={24} /></button>
+      <nav aria-label="Secciones del menú">
+        {SECCIONES.map((s, i) => <a key={s.id} href={`#${s.id}`} onClick={ir} style={{ '--i': i } as React.CSSProperties} aria-current={activa === s.id ? 'true' : undefined}>{s.texto}</a>)}
+      </nav>
+      <a className="boton boton-senal" href="/acceso">Entrar a mi empresa</a>
+    </div>
+
+    <main>
+      <section className="portada">
+        <div className="portada-texto">
+          <h1>Cada caja que cruza la línea, contada.</h1>
+          <p>VisioStock mira tu muelle de carga: reconoce las cajas, cuenta las entradas y salidas, y te avisa cuando algo se mueve fuera de horario o se cae.</p>
+          <div className="acciones">
+            <a className="boton boton-senal" href="/acceso">Entrar a mi empresa</a>
+            <a className="boton boton-linea" href="#funciona" onClick={ir}>Ver cómo funciona</a>
+          </div>
+        </div>
+
+        <div id="simulacion" className="visor">
+          <div className="visor-controles">
+            <div role="tablist" aria-label="Escenarios de la simulación" className="escenarios">
+              {ESCENARIOS.map(x => <button key={x.id} role="tab" aria-selected={escenario === x.id} aria-controls="visor-panel" onClick={() => setEscenario(x.id)}>{x.texto}</button>)}
+            </div>
+            <button className="pausa" onClick={() => setPausado(p => !p)} aria-pressed={pausado}>{pausado ? <><Play size={16} /> Reproducir</> : <><Pause size={16} /> Pausar</>}</button>
+          </div>
+          <div id="visor-panel" role="tabpanel" className="visor-cuerpo">
+            <div className="visor-pantalla"><Simulacion escenario={escenario} pausado={pausado} alCambiar={setDatos} /></div>
+            <aside className="tablero" aria-label="Lo que registra VisioStock">
+              <p className="tablero-detalle">{actual.detalle}</p>
+              <dl className="cifras">
+                <div><dt>Entradas</dt><dd>{datos?.entradas ?? 0}</dd></div>
+                <div><dt>Salidas</dt><dd>{datos?.salidas ?? 0}</dd></div>
+                <div><dt>Stock</dt><dd>{datos?.stock ?? 120}</dd></div>
+                <div className={datos?.alertas ? 'con-alerta' : ''}><dt>Alertas</dt><dd>{datos?.alertas ?? 0}</dd></div>
+              </dl>
+              <ol className="registro" aria-label="Últimos eventos">
+                {(datos?.eventos ?? []).map(ev => <li key={ev.id} className={ev.tipo}><time>{ev.reloj}</time>{ev.texto}</li>)}
+              </ol>
+            </aside>
+          </div>
+          <p className="visor-nota">Simulación ilustrativa con datos ficticios. En VisioStock el conteo sale de los videos que subes en Movimientos.</p>
+        </div>
+      </section>
+
+      <section id="funciona" className="seccion funciona">
+        <h2>Cómo funciona</h2>
+        <ol className="pasos" style={{ '--avance': (paso + 1) / PASOS.length } as React.CSSProperties}>
+          {PASOS.map(([titulo, texto], i) => <li key={titulo} ref={el => { pasos.current[i] = el; }} className={i <= paso ? 'hecho' : ''}>
+            <span className="paso-num" aria-hidden="true">{i + 1}</span>
+            <div><h3>{titulo}</h3><p>{texto}</p></div>
+          </li>)}
+        </ol>
+      </section>
+
+      <section id="seguridad" className="seccion seguridad">
+        <div className="seguridad-intro">
+          <h2>Tus datos, solo para tu empresa</h2>
+          <p>Seguridad pensada para un almacén real: quién entra, qué ve y cómo se revisa cada cambio del sistema.</p>
+        </div>
+        <ul className="controles">
+          {CONTROLES.map(([titulo, texto]) => <li key={titulo}><h3>{titulo}</h3><p>{texto}</p></li>)}
+        </ul>
+      </section>
+
+      <section id="preguntas" className="seccion preguntas">
+        <h2>Preguntas frecuentes</h2>
+        <div>{PREGUNTAS.map(([p, r]) => <details key={p}><summary>{p}</summary><p>{r}</p></details>)}</div>
+      </section>
+
+      <section className="cierre">
+        <h2>Tu próximo conteo, con evidencia.</h2>
+        <a className="boton boton-senal" href="/acceso">Entrar a mi empresa</a>
+      </section>
+    </main>
+
+    <footer className="pie">
+      <a className="marca" href="/"><span className="marca-ojo" aria-hidden="true"><ScanLine size={18} /></span>VisioStock</a>
+      <p>Gestión de inventario con visión artificial. Proyecto de USIL, 2026.</p>
+      <a href="/acceso">Acceso a la plataforma</a>
+    </footer>
+  </div>;
 }
