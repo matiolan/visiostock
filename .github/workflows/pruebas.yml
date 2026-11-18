@@ -50,7 +50,11 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - run: npm run build
+      - name: Build con una URL de Supabase de prueba (para /acceso y /recuperar)
+        env:
+          VITE_SUPABASE_URL: https://ejemplo.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_prueba
+        run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - name: Guardar capturas de la página de inicio

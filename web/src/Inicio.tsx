@@ -48,6 +48,7 @@ export default function Inicio() {
   const [pausado, setPausado] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
   const [datos, setDatos] = useState<Resumen | null>(null);
   const [paso, setPaso] = useState(0);
+  const [pregunta, setPregunta] = useState<number | null>(0);
   const enlaces = useRef<Record<string, HTMLAnchorElement | null>>({});
   const indicador = useRef<HTMLSpanElement>(null);
   const botonMenu = useRef<HTMLButtonElement>(null);
@@ -192,20 +193,39 @@ export default function Inicio() {
       </section>
 
       <section id="preguntas" className="seccion preguntas">
-        <h2>Preguntas frecuentes</h2>
-        <div>{PREGUNTAS.map(([p, r]) => <details key={p}><summary>{p}</summary><p>{r}</p></details>)}</div>
-      </section>
-
-      <section className="cierre">
-        <h2>Tu próximo conteo, con evidencia.</h2>
-        <a className="boton boton-senal" href="/acceso">Entrar a mi empresa</a>
+        <div className="preguntas-intro">
+          <h2>Preguntas frecuentes</h2>
+          <p>Lo que suelen preguntar los equipos de almacén antes de empezar.</p>
+        </div>
+        <div className="acordeon">
+          {PREGUNTAS.map(([p, r], i) => {
+            const abierta = pregunta === i;
+            return <div key={p} className={abierta ? 'pregunta abierta' : 'pregunta'}>
+              <h3><button id={`pregunta-${i}`} aria-expanded={abierta} aria-controls={`respuesta-${i}`} onClick={() => setPregunta(abierta ? null : i)}>
+                <span>{p}</span><span className="pregunta-signo" aria-hidden="true" />
+              </button></h3>
+              <div id={`respuesta-${i}`} role="region" aria-labelledby={`pregunta-${i}`} className="respuesta" inert={!abierta}>
+                <div><p>{r}</p></div>
+              </div>
+            </div>;
+          })}
+        </div>
       </section>
     </main>
 
     <footer className="pie">
-      <a className="marca" href="/"><span className="marca-ojo" aria-hidden="true"><ScanLine size={18} /></span>VisioStock</a>
-      <p>Gestión de inventario con visión artificial. Proyecto de USIL, 2026.</p>
-      <a href="/acceso">Acceso a la plataforma</a>
+      <div className="pie-cierre">
+        <p className="pie-frase"><span>Tu próximo conteo,</span> <span>con evidencia.</span></p>
+        <nav className="pie-nav" aria-label="Pie de página">
+          <div><h3>Producto</h3>{SECCIONES.map(s => <a key={s.id} href={`#${s.id}`} onClick={ir}>{s.texto}</a>)}</div>
+          <div><h3>Tecnología</h3><ul className="pila">{['React', 'Supabase', 'YOLO11', 'FastAPI', 'Vercel'].map(t => <li key={t}>{t}</li>)}</ul></div>
+          <div><h3>Proyecto</h3><p>Grupo 4, Proyecto Final de Carrera III</p><p>Universidad San Ignacio de Loyola</p></div>
+        </nav>
+      </div>
+      <div className="pie-base">
+        <a className="marca" href="/"><span className="marca-ojo" aria-hidden="true"><ScanLine size={18} /></span>VisioStock</a>
+        <p>Gestión de inventario con visión artificial. 2026.</p>
+      </div>
     </footer>
   </div>;
 }
