@@ -5,14 +5,18 @@ VisioStock es una cámara con visión artificial que cuenta cada caja que entra 
 
 **Problema a validar.** Según DeHoratius y Raman (*Management Science*, 2008), el 65 % de los registros de inventario no coincide con la realidad. El 2.º Estudio de Mermas del ISEG (citado por El Comercio, feb. 2026) estima más de S/ 700 millones perdidos en 2025, con 52 % de merma desconocida.
 
-**Entrevistas realizadas:** 3 (de las 5 previstas en HU-01), por llamada.
-**Perfil:** encargados de almacén. _(completar rubro y tamaño de cada empresa)_
+**Entrevistas documentadas:** 3 de 3 del alcance actualizado por Mia el 20/11/2026, por llamada. El alcance anterior era de cinco entrevistas; el cambio no altera retrospectivamente las fechas de ejecución.
+**Perfil:** encargados de almacén. Rubro, empresa y tamaño de cada organización: no registrados.
+
+**Identificadores de análisis:** E01 = Juan Martín Torres; E02 = Luis Enciso Quispe; E03 = Alfredo Roque Juárez. P1 a P8 corresponden a las preguntas de la tabla.
+
+**Calidad de la evidencia:** estas son las notas resumidas existentes del proyecto; no se dispone aquí de audios, transcripciones completas, fechas originales ni consentimientos firmados. No se afirma que los entrevistados hayan probado el software. La fecha 20/11/2026 corresponde a la actualización documental, no a las llamadas.
 
 | Entrevistado | Fecha | Rubro / empresa |
 | --- | --- | --- |
-| Juan Martín Torres | _(completar)_ | _(completar)_ |
-| Luis Enciso Quispe | _(completar)_ | _(completar)_ |
-| Alfredo Roque Juárez | _(completar)_ | _(completar)_ |
+| Juan Martín Torres | No registrado | No registrado |
+| Luis Enciso Quispe | No registrado | No registrado |
+| Alfredo Roque Juárez | No registrado | No registrado |
 
 ## Respuestas resumidas por pregunta
 | Pregunta | Juan Martín Torres | Luis Enciso Quispe | Alfredo Roque Juárez |
@@ -35,3 +39,19 @@ VisioStock es una cámara con visión artificial que cuenta cada caja que entra 
 
 ## Nota sobre la disposición a pagar
 Los tres respondieron en dólares; el precio de VisioStock está en soles (S/ 250 al mes por zona). Para compararlos hay que convertir con el tipo de cambio del día.
+
+## Codificación y resultado del alcance de tres entrevistas
+
+| Hallazgo | Evidencia en las notas | Cobertura de las notas |
+| --- | --- | --- |
+| Registro manual o regularizado con retraso | E01-P1: cuaderno y Excel; E02-P1: ERP y vales; E03-P1: listas y guías acumuladas | 3/3 |
+| Discrepancias de stock | E01-P3: 50 frente a 12 cajas; E02-P3: cinco unidades de más; E03-P3: descuadres semanales | 3/3 |
+| Dificultad de investigación y conciliación | E01-P4: cruce de guías; E02-P4: historial y cámaras; E03-P4: investigación poco rentable | 3/3 |
+| Conteos físicos con dedicación considerable | E01-P2: fin de semana; E02-P2: seis a ocho horas; E03-P2: tres o cuatro días | 3/3 |
+| Condiciones de adopción | E01-P7: precisión, luz y costo; E02-P7: resistencia e integración; E03-P7: polvo y mantenimiento | 3/3 |
+
+Estas proporciones describen únicamente las tres notas del proyecto. No son una estimación estadística de todas las PYMEs de Lima. Los montos de disposición a pagar fueron registrados en dólares; no equivalen a contratos, aceptación del precio ni pagos realizados.
+
+## Pendiente de autenticación del registro
+
+Mia debe incorporar las fechas verdaderas, los perfiles disponibles y la evidencia de consentimiento si la conserva. No deben inventarse ni reconstruirse como si fueran hechos. El alcance de tres entrevistas no reduce por sí solo el alcance de las pruebas de usabilidad, que es una actividad distinta.

@@ -1,5 +1,11 @@
 # VisioStock
 
+## Estado contrastado el 20/11/2026
+
+La revisión HTTP comprobó la CSP de visión actual en https://visiostock.vercel.app . La dirección histórica https://visiostock-mia.vercel.app sigue respondiendo, pero su CSP aún no incluye el servicio de visión; no se consideran la misma compilación. Ver `docs/validacion-tecnica-2026-11-20.md` para resultados y límites.
+
+El alcance de investigación actualizado por Mia es de **tres entrevistas**, documentadas en `docs/entrevistas.md`. La usabilidad es una actividad distinta. El mapa, journey, POV, Canvas e hipótesis identifican sus fuentes y distinguen hallazgos de supuestos; no se inventan fechas ni resultados.
+
 Gestión de inventario y verificación visual por empresa. La web renovada reemplaza el prototipo anterior y conserva el historial del repositorio.
 
 **Web publicada: https://visiostock-mia.vercel.app**
