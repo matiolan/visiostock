@@ -156,6 +156,17 @@ jobs:
           done
       - name: Prueba de aislamiento entre empresas
         run: psql -v ON_ERROR_STOP=1 -q -f supabase/prueba_aislamiento.sql
+      - name: Validar portal de dos empresas y permisos administrativos (SCRUM-63)
+        run: |
+          set -o pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/prueba_portal_dos_empresas.sql | tee resultado-portal-dos-empresas.txt
+      - name: Guardar evidencia de la prueba del portal
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: resultado-portal-dos-empresas
+          path: resultado-portal-dos-empresas.txt
+          if-no-files-found: warn
       - name: Prueba de doble factor exigido por la base de datos
         run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_doble_factor.sql
       - name: Prueba de horario laboral y zona en movimientos (SCRUM-26)
