@@ -7,106 +7,54 @@ on:
     branches: ['**']
   pull_request:
     branches: [main]
+  workflow_dispatch:
+# Una ejecución nueva sustituye a la anterior de la misma rama o PR.
+# main conserva sus ejecuciones para no interrumpir integraciones.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+defaults:
+  run:
+    shell: bash
 permissions:
   contents: read
 jobs:
-  web:
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: web
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm ci
-      - run: npm test
-      - name: Validar cabeceras y CSP
-        env:
-          VITE_VISION_URL: ${{ vars.VITE_VISION_URL || 'https://vastec-portatil.tail86ca65.ts.net' }}
-        run: node --test tests/cabeceras.test.mjs
-      - run: npm run build
-  landing-e2e:
-    name: Web · página de inicio responsive (Playwright)
-    # SCRUM-76: Chromium real a 360, 768 y 1280 px. Falla si hay desplazamiento horizontal,
-    # si la simulación no dibuja, si el menú no abre/cierra con teclado o si la página
-    # lanza errores. Las capturas quedan como artefacto de la ejecución.
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: web
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm ci
-      - name: Build con una URL de Supabase de prueba (para /acceso y /recuperar)
-        env:
-          VITE_SUPABASE_URL: https://ejemplo.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_prueba
-        run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-      - name: Guardar capturas de la página de inicio
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: capturas-pagina-de-inicio
-          path: web/e2e/capturas/
-          if-no-files-found: warn
-
-  vision:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: vision/requirements-test.txt
-      - run: python -m pip install -r vision/requirements-test.txt
-      - run: python -m unittest discover -s vision -p "test_*.py"
-
-  # ---------- Seguridad ----------
+  # 1. SEGURIDAD INICIAL: auditorías independientes en paralelo.
   seguridad-dependencias-web:
     name: Seguridad · dependencias web (npm audit)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Obtener el código
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - name: Preparar Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
       # Falla si hay vulnerabilidades de severidad moderada o mayor.
-      - run: npm audit --package-lock-only --audit-level=moderate
+      - name: Auditar dependencias web
+        run: npm audit --package-lock-only --audit-level=moderate
 
   seguridad-dependencias-vision:
     name: Seguridad · dependencias visión (pip-audit)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Obtener el código
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - name: Preparar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - run: python -m pip install pip-audit
+      - name: Preparar el auditor de dependencias Python
+        run: python -m pip install pip-audit
       # Falla si alguna dependencia tiene una vulnerabilidad conocida.
       - name: Auditar dependencias de producción
         run: pip-audit -r vision/requirements.txt
@@ -117,19 +65,124 @@ jobs:
   seguridad-secretos:
     name: Seguridad · secretos expuestos (gitleaks)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Obtener el código
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
           persist-credentials: false
       # Falla si encuentra claves, tokens o contraseñas en el historial.
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+      - name: Buscar secretos en el historial
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  seguridad-codigo:
+    name: Seguridad · análisis estático (CodeQL ${{ matrix.lenguaje }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lenguaje: [javascript-typescript, python]
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Preparar el análisis de seguridad
+        uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
+        with:
+          languages: ${{ matrix.lenguaje }}
+          queries: security-extended
+      - name: Analizar código y publicar resultados
+        uses: github/codeql-action/analyze@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
+        with:
+          category: /language:${{ matrix.lenguaje }}
+          output: resultados-codeql
+      # CodeQL solo publica alertas; este paso hace que el pipeline falle
+      # si encontró algún problema de seguridad.
+      - name: Fallar si CodeQL encontró problemas
+        run: |
+          total=$(jq -s '[.[].runs[].results[]] | length' resultados-codeql/*.sarif)
+          echo "Hallazgos de CodeQL: $total"
+          jq -r '.runs[].results[] | "- \(.ruleId): \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' resultados-codeql/*.sarif
+          test "$total" -eq 0
+
+  # Puerta de seguridad: las pruebas comienzan solo si toda la etapa 1 pasa.
+  seguridad-validada:
+    name: Seguridad inicial validada
+    needs:
+      - seguridad-dependencias-web
+      - seguridad-dependencias-vision
+      - seguridad-secretos
+      - seguridad-codigo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Habilitar las pruebas tras superar la seguridad inicial
+        run: echo "Dependencias, secretos y análisis estático satisfactorios."
+
+  # 2. PRUEBAS Y COMPILACIÓN: web, visión y base de datos en paralelo.
+  web:
+    needs: seguridad-validada
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Preparar Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Instalar dependencias web desde el lockfile
+        run: npm ci
+      - name: Ejecutar pruebas web
+        run: npm test
+      - name: Validar cabeceras y CSP
+        env:
+          VITE_VISION_URL: ${{ vars.VITE_VISION_URL || 'https://vastec-portatil.tail86ca65.ts.net' }}
+        run: node --test tests/cabeceras.test.mjs
+      - name: Comprobar TypeScript y compilar la web
+        run: npm run build
+
+  vision:
+    needs: seguridad-validada
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Preparar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: vision/requirements-test.txt
+      - name: Instalar dependencias de pruebas de visión
+        run: python -m pip install -r vision/requirements-test.txt
+      - name: Ejecutar pruebas del servicio de visión
+        run: python -m unittest discover -s vision -p "test_*.py"
+
   seguridad-sql:
     name: Seguridad · políticas SQL (RLS y doble factor)
+    needs: seguridad-validada
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     # PostgreSQL real con lo mínimo de Supabase Auth (supabase/ci/stub_supabase.sql).
     # Falla si un usuario ve datos de otra empresa o si una sesión sin el segundo factor
     # (AAL1) accede a datos de una cuenta que tiene el doble factor activo (SCRUM-74).
@@ -146,7 +199,8 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Obtener el código
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - name: Cargar esquema y migraciones de seguridad
@@ -156,39 +210,102 @@ jobs:
           done
       - name: Prueba de aislamiento entre empresas
         run: psql -v ON_ERROR_STOP=1 -q -f supabase/prueba_aislamiento.sql
+      - name: Validar portal de dos empresas y permisos administrativos (SCRUM-63)
+        run: |
+          set -o pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/prueba_portal_dos_empresas.sql | tee resultado-portal-dos-empresas.txt
+      - name: Guardar evidencia de la prueba del portal
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: resultado-portal-dos-empresas
+          path: resultado-portal-dos-empresas.txt
+          if-no-files-found: warn
       - name: Prueba de doble factor exigido por la base de datos
         run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_doble_factor.sql
       - name: Prueba de horario laboral y zona en movimientos (SCRUM-26)
         run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_horario_laboral.sql
 
-  seguridad-codigo:
-    name: Seguridad · análisis estático (CodeQL ${{ matrix.lenguaje }})
+  # 3. NAVEGADOR: se ejecuta tras superar todas las pruebas de la etapa 2.
+  landing-e2e:
+    name: Web · página de inicio responsive (Playwright)
+    # SCRUM-76: Chromium real a 360, 768 y 1280 px. Falla si hay desplazamiento horizontal,
+    # si la simulación no dibuja, si el menú no abre/cierra con teclado o si la página
+    # lanza errores. Las capturas quedan como artefacto de la ejecución.
+    needs: [web, vision, seguridad-sql]
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
-    strategy:
-      fail-fast: false
-      matrix:
-        lenguaje: [javascript-typescript, python]
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: web
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Obtener el código
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
-      - uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
+      - name: Preparar Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          languages: ${{ matrix.lenguaje }}
-          queries: security-extended
-      - uses: github/codeql-action/analyze@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Instalar dependencias web desde el lockfile
+        run: npm ci
+      - name: Build con una URL de Supabase de prueba (para /acceso y /recuperar)
+        env:
+          VITE_SUPABASE_URL: https://ejemplo.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_prueba
+        run: npm run build
+      - name: Preparar Chromium para las pruebas
+        run: npx playwright install --with-deps chromium
+      - name: Probar portada, navegación y acceso en navegador
+        run: npm run test:e2e
+      - name: Guardar capturas de la página de inicio
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          category: /language:${{ matrix.lenguaje }}
-          output: resultados-codeql
-      # CodeQL solo publica alertas; este paso hace que el pipeline falle
-      # si encontró algún problema de seguridad.
-      - name: Fallar si CodeQL encontró problemas
+          name: capturas-pagina-de-inicio
+          path: web/e2e/capturas/
+          if-no-files-found: warn
+
+  # 4. RESULTADO: resumen único que falla si cualquier comprobación falla o se omite.
+  resultado-pipeline:
+    name: Resultado del pipeline
+    # Se ejecuta también si falla u omite una dependencia: nunca da un verde falso.
+    if: ${{ !cancelled() }}
+    needs:
+      - seguridad-dependencias-web
+      - seguridad-dependencias-vision
+      - seguridad-secretos
+      - seguridad-codigo
+      - seguridad-validada
+      - web
+      - vision
+      - seguridad-sql
+      - landing-e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Publicar resumen y exigir todas las comprobaciones satisfactorias
+        env:
+          RESULTADOS: ${{ toJSON(needs) }}
         run: |
-          total=$(jq -s '[.[].runs[].results[]] | length' resultados-codeql/*.sarif)
-          echo "Hallazgos de CodeQL: $total"
-          jq -r '.runs[].results[] | "- \(.ruleId): \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' resultados-codeql/*.sarif
-          test "$total" -eq 0
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          resultados = json.loads(os.environ["RESULTADOS"])
+          lineas = ["## VisioStock · resultado de integración", "",
+                    "| Comprobación | Resultado |", "| --- | --- |"]
+          for nombre, detalle in resultados.items():
+              lineas.append(f"| {nombre} | {detalle['result']} |")
+          lineas.extend(["", "Evidencias: artefactos de capturas y resultado-portal-dos-empresas.",
+                         "Esta ejecución valida el código; no acredita un despliegue ni pruebas con usuarios reales."])
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as resumen:
+              resumen.write("\n".join(lineas) + "\n")
+          pendientes = [nombre for nombre, dato in resultados.items() if dato["result"] != "success"]
+          if pendientes:
+              raise SystemExit("Comprobaciones no satisfactorias: " + ", ".join(pendientes))
+          print("Todas las comprobaciones terminaron correctamente.")
+          PY

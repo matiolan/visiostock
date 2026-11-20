@@ -5,20 +5,22 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const PUERTO = 4319, DIRECCION = `http://127.0.0.1:${PUERTO}/`, CAPTURAS = new URL('./capturas/', import.meta.url).pathname;
+const PUERTO = 4319, DIRECCION = `http://127.0.0.1:${PUERTO}/`, CAPTURAS = fileURLToPath(new URL('./capturas/', import.meta.url));
 const TAMANOS = [['movil', 360, 740], ['tableta', 768, 1024], ['escritorio', 1280, 800]];
 let servidor, navegador;
 
 before(async () => {
   mkdirSync(CAPTURAS, { recursive: true });
-  servidor = spawn('npx', ['vite', 'preview', '--host', '127.0.0.1', '--port', String(PUERTO), '--strictPort'], { stdio: 'ignore' });
+  // SCRUM-58: invocar Node/Vite directamente funciona también en Windows sin shell.
+  servidor = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), 'preview', '--host', '127.0.0.1', '--port', String(PUERTO), '--strictPort'], { stdio: 'ignore' });
   for (let i = 0; i < 60; i++) { // espera hasta 15 s a que responda
     try { if ((await fetch(DIRECCION)).ok) break; } catch { /* aún no levanta */ }
     await new Promise(r => setTimeout(r, 250));
   }
-  navegador = await chromium.launch();
+  navegador = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
 });
 after(async () => { await navegador?.close(); servidor?.kill(); });
 
