@@ -53,7 +53,7 @@
 .vs-acceso input::placeholder{color:#9aa1a8;font-weight:400}
 .vs-acceso input:hover{border-color:#9aa1a8}
 .vs-acceso input:focus{outline:none;border-color:var(--pizarra);box-shadow:0 0 0 4px #f5c51866}
-.vs-acceso .acceso-principal{width:100%;min-height:54px;display:inline-flex;align-items:center;justify-content:center;background:var(--senal);color:var(--pizarra);border:2px solid var(--pizarra);font-weight:800;font-size:17px;margin-top:4px;transition:background .15s,color .15s}
+.vs-acceso .acceso-principal{width:100%;min-height:54px;display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--senal);color:var(--pizarra);border:2px solid var(--pizarra);font-weight:800;font-size:17px;margin-top:4px;transition:background .15s,color .15s}
 .vs-acceso .acceso-principal:hover{background:var(--pizarra);color:var(--senal)}
 .vs-acceso .acceso-principal:disabled{opacity:.6;cursor:wait}
 .acceso-secundario{margin-top:14px;width:100%;min-height:50px;display:flex;align-items:center;justify-content:center;gap:10px;border:2px solid var(--linea);font-weight:700;font-size:15px;color:var(--pizarra);transition:border-color .15s,background .15s}
@@ -62,6 +62,12 @@
 .acceso-exito{padding:18px;border-left:4px solid var(--senal);background:#fff;font-size:16px;line-height:1.55}
 .acceso-exito p{margin:0 0 14px}.acceso-exito p:last-child{margin:0}
 .acceso-nota{margin:28px 0 0;padding-top:20px;border-top:1px solid var(--linea);color:var(--gris);font-size:14px;line-height:1.55}
+
+/* SCRUM-79 · código del doble factor */
+.vs-acceso button.acceso-secundario{background:none}
+.vs-acceso button.acceso-secundario:hover{background:#fff}
+.vs-acceso .acceso-codigo{font-size:26px;letter-spacing:.3em;font-variant-numeric:tabular-nums;text-align:center}
+.vs-acceso .acceso-codigo::placeholder{letter-spacing:.3em}
 
 @media (max-width:900px){
   .vs-acceso{grid-template-columns:1fr}

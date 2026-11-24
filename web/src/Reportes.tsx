@@ -52,7 +52,7 @@ export default function Reportes({ productos, empresa }: { productos: ProductoRe
       <button className="export-button" onClick={descargarExcel} disabled={cargando || !r}>Descargar Excel (CSV)</button>
       <button className="export-button" onClick={() => window.print()} disabled={cargando || !r}>Descargar PDF</button>
     </div>
-    <p className="vs-eyebrow">REPORTE SEMANAL DE MERMAS Y DISCREPANCIAS{empresa ? ` · ${empresa.toUpperCase()}` : ''}</p>
+    <p className="vs-eyebrow">Reporte semanal de mermas y discrepancias{empresa ? ` · ${empresa}` : ''}</p>
     <h2>Semana del {fechaLima(semana)} al {fechaLima(sumarDias(semana, 6))}{enCurso ? ' (en curso)' : ''}</h2>
     <p className="csv-help">Lunes 00:00 a domingo 23:59, hora de Lima. Merma = unidades faltantes detectadas en las verificaciones (conteo menor que el stock registrado).</p>
     {cargando && <p className="status" role="status">Generando reporte…</p>}
@@ -63,7 +63,7 @@ export default function Reportes({ productos, empresa }: { productos: ProductoRe
         <article><small>Salidas</small><strong>{r.actual.salidas}</strong><span>unidades</span></article>
         <article><small>Merma</small><strong>{r.actual.unidadesFaltantes}</strong><span>unidades faltantes · {r.actual.conDiferencia} de {r.actual.verificaciones} verificaciones con diferencia</span></article>
       </div>
-      <div className="vs-section-title"><h2>Comparación con la semana anterior</h2><span>DEL {fechaLima(r.inicioAnterior)}</span></div>
+      <div className="vs-section-title"><h2>Comparación con la semana anterior</h2><span>Semana anterior desde el {fechaLima(r.inicioAnterior)}</span></div>
       <div className="vs-table-wrap"><table><thead><tr><th>Indicador</th><th>Esta semana</th><th>Semana anterior</th><th>Cambio</th></tr></thead><tbody>
         <tr><td>Unidades de entrada</td><td>{r.comparacion.entradas.actual}</td><td>{r.comparacion.entradas.anterior}</td><td><Cambio v={r.comparacion.entradas} malo="neutro" /></td></tr>
         <tr><td>Unidades de salida</td><td>{r.comparacion.salidas.actual}</td><td>{r.comparacion.salidas.anterior}</td><td><Cambio v={r.comparacion.salidas} malo="neutro" /></td></tr>

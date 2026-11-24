@@ -1,6 +1,9 @@
 // SCRUM-74: si la cuenta tiene doble factor, pide el código antes de mostrar el portal.
 // La base de datos también lo exige (10_doble_factor.sql): esta pantalla solo guía al usuario.
+// SCRUM-79: usa el mismo marco que /acceso.
 import { useEffect, useState, type ReactNode } from 'react';
+import { LogOut, ShieldCheck } from 'lucide-react';
+import MarcoAcceso from './landing/MarcoAcceso';
 import { supabaseBrowser } from './lib/supabase';
 import { factorActivo, mensajeError, normalizarCodigo, requiereCodigo } from './lib/doble-factor';
 
@@ -34,17 +37,16 @@ export default function PuertaDobleFactor({ children }: { children: ReactNode })
 
   async function salir() { await supabaseBrowser().auth.signOut(); window.location.assign('/acceso'); }
 
-  if (estado === 'revisando') return <main className="vs-recovery"><p role="status">Comprobando tu sesión…</p></main>;
   if (estado === 'listo') return <>{children}</>;
-  return <main className="vs-recovery">
-    <p className="vs-eyebrow">VERIFICACIÓN EN DOS PASOS</p>
+  if (estado === 'revisando') return <div className="vs-comprobando" role="status">Comprobando tu sesión…</div>;
+  return <MarcoAcceso>
     <h1>Ingresa tu código</h1>
-    <p>Tu cuenta tiene activado el doble factor. Abre Google Authenticator (u otra app de autenticación) y escribe el código de 6 dígitos de VisioStock.</p>
-    <form onSubmit={verificar}>
-      <label>Código de 6 dígitos<input name="codigo" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus /></label>
-      <button disabled={enviando}>{enviando ? 'Verificando…' : 'Verificar y entrar →'}</button>
-      <p role="status">{mensaje}</p>
+    <p className="acceso-intro">Tu cuenta tiene la verificación en dos pasos activada. Abre Google Authenticator (u otra app de autenticación) y escribe el código de 6 dígitos de VisioStock.</p>
+    <form onSubmit={verificar} className="acceso-form">
+      <label>Código de 6 dígitos<input className="acceso-codigo" name="codigo" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} placeholder="000 000" required autoFocus /></label>
+      {mensaje && <p className="acceso-aviso" role="alert">{mensaje}</p>}
+      <button className="acceso-principal" disabled={enviando}><ShieldCheck size={18} aria-hidden="true" /> {enviando ? 'Verificando…' : 'Verificar y entrar'}</button>
     </form>
-    <button type="button" className="vs-link-button" onClick={salir}>Cerrar sesión</button>
-  </main>;
+    <button type="button" className="acceso-secundario" onClick={() => void salir()}><LogOut size={18} aria-hidden="true" /> Cerrar sesión</button>
+  </MarcoAcceso>;
 }

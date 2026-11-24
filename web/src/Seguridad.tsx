@@ -60,7 +60,7 @@ export default function Seguridad() {
   if (cargando) return <p className="status" role="status">Cargando…</p>;
   return <div className="vs-seguridad">
     <div className="vs-section-title"><h2>Verificación en dos pasos (doble factor)</h2>
-      <span className={activo ? 'vs-tag' : 'vs-tag warn'}>{activo ? 'ACTIVADO' : 'DESACTIVADO'}</span></div>
+      <span className={activo ? 'vs-tag' : 'vs-tag warn'}>{activo ? 'Activado' : 'Desactivado'}</span></div>
     <p className="csv-help">Además de tu contraseña o tu cuenta de Google, te pediremos un código de 6 dígitos que cambia cada 30 segundos.
       Funciona con Google Authenticator, Microsoft Authenticator, Authy y otras apps compatibles con TOTP.</p>
     {activo && <>
@@ -79,7 +79,7 @@ export default function Seguridad() {
       <form className="vs-form-grid" onSubmit={confirmar}>
         <label>Código de 6 dígitos<input name="codigo" inputMode="numeric" autoComplete="one-time-code" maxLength={7} required autoFocus /></label>
         <button disabled={ocupado}>Confirmar y activar</button>
-        <button type="button" onClick={cancelar} disabled={ocupado}>Cancelar</button>
+        <button type="button" className="export-button" onClick={cancelar} disabled={ocupado}>Cancelar</button>
       </form>
     </div>}
     <p role="status" className="status">{mensaje}</p>
