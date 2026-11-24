@@ -25,7 +25,7 @@ export async function probarCamarasIP(camaras:Camara[],procesar=false,segundos=2
   body:JSON.stringify({camaras:camaras.map(c=>({id:c.id,url:c.url,linea:c.linea??.5})),procesar,segundos}),signal:AbortSignal.timeout((segundos+20)*1000)});
  const body=await r.json();if(!r.ok)throw new Error(typeof body.detail==='string'?body.detail:'El servicio de visión no pudo revisar las cámaras.');return body.camaras;
 }
-export async function cambiarCamara(id:string,cambios:Partial<Pick<Camara,'activa'|'dispositivo'|'zona_id'>>){
+export async function cambiarCamara(id:string,cambios:Partial<Pick<Camara,'activa'|'dispositivo'|'zona_id'|'zonas_conteo'>>){
  const {error:e}=await supabaseBrowser().from('vs_camaras').update(cambios).eq('id',id);error(e);
 }
 // Los nombres de las cámaras solo aparecen después de conceder el permiso una vez.

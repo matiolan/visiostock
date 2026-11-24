@@ -10,7 +10,7 @@ export async function movimientosDeVideo(file:File,clase:string,linea:number):Pr
 }
 // SCRUM-26: el video ya captura la imagen de la caja; se sube como evidencia si hay espacio
 // (si falla la subida, el movimiento se registra igual, sin evidencia, porque es opcional).
-export async function registrarMovimiento(producto:string,sentido:string,empresaId:string,imagenBase64?:string|null){
+export async function registrarMovimiento(producto:string,sentido:string,empresaId:string,imagenBase64?:string|null,zona?:string|null){
  const db=supabaseBrowser();let foto:string|null=null;
  if(imagenBase64){
   const {data:{user}}=await db.auth.getUser();
@@ -20,7 +20,7 @@ export async function registrarMovimiento(producto:string,sentido:string,empresa
    if(!subida)foto=path;
   }
  }
- const {error}=await db.rpc('vs_registrar_movimiento',{p:producto,s:sentido,n:1,foto});
+ const {error}=await db.rpc('vs_registrar_movimiento',{p:producto,s:sentido,n:1,foto,...(zona?{zona}:{})});
  if(error)throw new Error(error.message.includes('Stock insuficiente')?'Stock insuficiente para registrar una de las salidas.':'No se pudo registrar el movimiento.');
 }
 // HU-07: la imagen de la caja sin código legible se guarda como evidencia privada para revisarla.
