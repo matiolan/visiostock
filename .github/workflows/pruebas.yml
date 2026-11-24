@@ -31,6 +31,40 @@ jobs:
           VITE_VISION_URL: ${{ vars.VITE_VISION_URL || 'https://vastec-portatil.tail86ca65.ts.net' }}
         run: node --test tests/cabeceras.test.mjs
       - run: npm run build
+  landing-e2e:
+    name: Web · página de inicio responsive (Playwright)
+    # SCRUM-76: Chromium real a 360, 768 y 1280 px. Falla si hay desplazamiento horizontal,
+    # si la simulación no dibuja, si el menú no abre/cierra con teclado o si la página
+    # lanza errores. Las capturas quedan como artefacto de la ejecución.
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Build con una URL de Supabase de prueba (para /acceso y /recuperar)
+        env:
+          VITE_SUPABASE_URL: https://ejemplo.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_prueba
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Guardar capturas de la página de inicio
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: capturas-pagina-de-inicio
+          path: web/e2e/capturas/
+          if-no-files-found: warn
+
   vision:
     runs-on: ubuntu-24.04
     steps:
@@ -117,7 +151,7 @@ jobs:
           persist-credentials: false
       - name: Cargar esquema y migraciones de seguridad
         run: |
-          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/08_auditoria_inmutable.sql supabase/09_corregir_cadena_hash.sql supabase/10_doble_factor.sql; do
+          for f in supabase/ci/stub_supabase.sql supabase/esquema.sql supabase/02_verificaciones.sql supabase/06_camaras_zonas.sql supabase/08_auditoria_inmutable.sql supabase/09_corregir_cadena_hash.sql supabase/10_doble_factor.sql supabase/11_horario_laboral.sql supabase/03_endurecer_seguridad.sql; do
             psql -v ON_ERROR_STOP=1 -q -f "$f"
           done
       - name: Prueba de aislamiento entre empresas
@@ -128,6 +162,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_auditoria_inmutable.sql
       - name: Prueba de cadena de hash (SCRUM-21)
         run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_cadena_hash.sql
+      - name: Prueba de horario laboral y zona en movimientos (SCRUM-26)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/prueba_horario_laboral.sql
 
   seguridad-codigo:
     name: Seguridad · análisis estático (CodeQL ${{ matrix.lenguaje }})

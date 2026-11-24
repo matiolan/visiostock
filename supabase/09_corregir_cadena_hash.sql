@@ -16,6 +16,10 @@
 --      vuelva a correr.
 --   5) El hash no incluia empresa_id ni actor: cambiar de empresa o de autor a un movimiento no
 --      se detectaba. Ambos se agregan a la formula.
+--   6) El hash no incluia zona_id, foto_evidencia ni fuera_de_horario (agregados por
+--      11_horario_laboral.sql): cambiar la zona, la evidencia o la marca de fuera de horario de un
+--      movimiento no se detectaba. Se agregan a la formula. Las tres columnas se crean aqui con
+--      "if not exists" (igual que en 11) para que 09 funcione se corra antes o despues de 11.
 -- La formula del hash vive en una sola funcion (vs_hash_movimiento) para que el trigger, la
 -- verificacion, el sellado y la prueba usen siempre la misma, sin copiarla a mano en cada lugar.
 -- Ejecutar despues de 08_auditoria_inmutable.sql.
@@ -28,12 +32,17 @@ alter table public.vs_movimientos add column if not exists secuencia bigint gene
 -- a correr este script no re-sella lo que ya esta en la version actual (no puede ocultar una
 -- alteracion hecha despues del primer sellado).
 alter table public.vs_movimientos add column if not exists hash_version smallint;
+-- Columnas de SCRUM-26 que ahora forman parte de la formula (mismas definiciones que en 11).
+alter table public.vs_movimientos add column if not exists foto_evidencia text;
+alter table public.vs_movimientos add column if not exists zona_id uuid references public.vs_zonas(id);
+alter table public.vs_movimientos add column if not exists fuera_de_horario boolean not null default false;
 
 create or replace function public.vs_hash_movimiento(anterior text, mov public.vs_movimientos) returns text
 language sql immutable set search_path = public, extensions as $$
   select encode(digest(
     anterior || mov.id::text || mov.empresa_id::text || mov.producto_id::text || mov.sentido || mov.cantidad::text
-      || coalesce(mov.actor::text, '') || extract(epoch from mov.creado_en)::text,
+      || coalesce(mov.actor::text, '') || extract(epoch from mov.creado_en)::text
+      || coalesce(mov.zona_id::text, '') || coalesce(mov.foto_evidencia, '') || mov.fuera_de_horario::text,
     'sha256'), 'hex')
 $$;
 revoke all on function public.vs_hash_movimiento(text, public.vs_movimientos) from public, anon, authenticated;

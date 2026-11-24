@@ -1,0 +1,76 @@
+/* SCRUM-78 · /acceso y /recuperar con la identidad de la landing (todo dentro de .vs-acceso). */
+.vs-acceso{
+  --pizarra:#142640;--papel:#f6f6f3;--concreto:#e4e5e1;--senal:#f5c518;--alerta:#d8432b;--gris:#56606e;--linea:#cfd1cb;
+  --cinta:repeating-linear-gradient(-45deg,var(--senal) 0 12px,#16120a 12px 24px);
+  font-family:'Archivo Variable','Archivo',system-ui,sans-serif;
+  min-height:100vh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);background:var(--papel);color:var(--pizarra)
+}
+.vs-acceso h1{font-stretch:68%;font-weight:800;font-size:clamp(42px,4.6vw,64px);line-height:.95;margin:0}
+.vs-acceso a,.vs-acceso button{outline-offset:3px}
+.vs-acceso :focus-visible{outline:3px solid var(--pizarra)}
+
+/* Panel de la cámara */
+.acceso-camara{position:relative;background:var(--pizarra);color:var(--papel);padding:40px clamp(28px,4vw,64px);display:flex;flex-direction:column;gap:28px;overflow:hidden;
+  background-image:radial-gradient(#ffffff14 1px,transparent 1.2px);background-size:22px 22px}
+.acceso-camara::before{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:var(--cinta)}
+.acceso-camara :focus-visible{outline-color:var(--senal)}
+.acceso-marca{display:inline-flex;align-items:center;gap:10px;font-stretch:75%;font-weight:800;font-size:22px;width:fit-content}
+.acceso-ojo{display:grid;place-items:center;width:34px;height:34px;background:var(--senal);color:var(--pizarra)}
+.acceso-visor{margin-top:auto;position:relative;padding:10px}
+.acceso-visor::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(var(--senal),var(--senal)) top left/28px 3px,linear-gradient(var(--senal),var(--senal)) top left/3px 28px,
+  linear-gradient(var(--senal),var(--senal)) top right/28px 3px,linear-gradient(var(--senal),var(--senal)) top right/3px 28px,
+  linear-gradient(var(--senal),var(--senal)) bottom left/28px 3px,linear-gradient(var(--senal),var(--senal)) bottom left/3px 28px,
+  linear-gradient(var(--senal),var(--senal)) bottom right/28px 3px,linear-gradient(var(--senal),var(--senal)) bottom right/3px 28px;background-repeat:no-repeat}
+.acceso-pantalla{aspect-ratio:16/9;background:#0e1520}
+.acceso-pantalla .sim-lienzo{display:block;width:100%;height:100%}
+.acceso-cifras{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#ffffff26;margin:10px 0 0}
+.acceso-cifras>div{background:var(--pizarra);padding:10px 12px}
+.acceso-cifras dt{font-size:13px;color:#aab6c5}
+.acceso-cifras dd{margin:2px 0 0;font-stretch:68%;font-weight:800;font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
+.acceso-lema{font-stretch:68%;font-weight:800;font-size:clamp(34px,3.4vw,48px);line-height:.95;margin:0;max-width:16ch}
+.acceso-garantias{list-style:none;margin:0 0 auto;padding:0;display:flex;flex-wrap:wrap;gap:10px 22px;font-size:15px;color:#c8d1dc}
+.acceso-garantias li{display:flex;align-items:center;gap:9px}
+.acceso-garantias li::before{content:"";width:10px;height:10px;background:var(--senal);flex:none}
+
+/* Formulario */
+.acceso-panel{display:flex;flex-direction:column;padding:32px clamp(24px,5vw,72px) 40px}
+.acceso-volver{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;color:var(--gris);width:fit-content}
+.acceso-volver:hover{color:var(--pizarra)}
+.acceso-marca-movil{display:none}
+.acceso-contenido{width:100%;max-width:420px;margin:auto;padding:40px 0}
+.acceso-intro{color:var(--gris);font-size:17px;line-height:1.55;margin:16px 0 28px}
+.vs-acceso button{border-radius:0;font:inherit;cursor:pointer}
+.vs-acceso button:hover{filter:none}
+.vs-acceso .acceso-google{width:100%;min-height:54px;display:flex;align-items:center;justify-content:center;gap:12px;background:#fff;color:var(--pizarra);border:2px solid var(--pizarra);font-weight:700;font-size:16px;padding:0 18px;transition:box-shadow .15s,transform .15s}
+.vs-acceso .acceso-google:hover{box-shadow:5px 5px 0 var(--senal);transform:translate(-2px,-2px)}
+.vs-acceso .acceso-google:active{box-shadow:none;transform:none}
+.acceso-separador{display:flex;align-items:center;gap:12px;color:var(--gris);font-size:14px;margin:24px 0}
+.acceso-separador::before,.acceso-separador::after{content:"";flex:1;border-top:1px solid var(--linea)}
+.acceso-form{margin:0;display:flex;flex-direction:column;gap:16px}
+.vs-acceso label{display:block;margin:0;font-size:14px;font-weight:700;color:var(--pizarra)}
+.vs-acceso input{display:block;width:100%;min-height:50px;margin-top:7px;padding:12px 14px;border:2px solid var(--linea);border-radius:0;background:#fff;color:var(--pizarra);font-size:16px;transition:border-color .15s,box-shadow .15s}
+.vs-acceso input::placeholder{color:#9aa1a8;font-weight:400}
+.vs-acceso input:hover{border-color:#9aa1a8}
+.vs-acceso input:focus{outline:none;border-color:var(--pizarra);box-shadow:0 0 0 4px #f5c51866}
+.vs-acceso .acceso-principal{width:100%;min-height:54px;display:inline-flex;align-items:center;justify-content:center;background:var(--senal);color:var(--pizarra);border:2px solid var(--pizarra);font-weight:800;font-size:17px;margin-top:4px;transition:background .15s,color .15s}
+.vs-acceso .acceso-principal:hover{background:var(--pizarra);color:var(--senal)}
+.vs-acceso .acceso-principal:disabled{opacity:.6;cursor:wait}
+.acceso-secundario{margin-top:14px;width:100%;min-height:50px;display:flex;align-items:center;justify-content:center;gap:10px;border:2px solid var(--linea);font-weight:700;font-size:15px;color:var(--pizarra);transition:border-color .15s,background .15s}
+.acceso-secundario:hover{border-color:var(--pizarra);background:#fff}
+.acceso-aviso{margin:0;padding:12px 14px;border-left:4px solid var(--alerta);background:#d8432b14;color:#8f2a17;font-size:15px;line-height:1.5}
+.acceso-exito{padding:18px;border-left:4px solid var(--senal);background:#fff;font-size:16px;line-height:1.55}
+.acceso-exito p{margin:0 0 14px}.acceso-exito p:last-child{margin:0}
+.acceso-nota{margin:28px 0 0;padding-top:20px;border-top:1px solid var(--linea);color:var(--gris);font-size:14px;line-height:1.55}
+
+@media (max-width:900px){
+  .vs-acceso{grid-template-columns:1fr}
+  .acceso-camara{display:none}
+  .acceso-panel{padding-top:24px}
+  .acceso-volver{display:none}
+  .acceso-marca-movil{display:inline-flex}
+  .acceso-panel{position:relative}
+  .acceso-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:var(--cinta)}
+  .acceso-contenido{margin:24px auto 0}
+}
+@media (prefers-reduced-motion:reduce){.vs-acceso *{transition:none!important}}

@@ -3,7 +3,7 @@ import { Circle, Film, QrCode, Square, Video } from 'lucide-react';
 import { estadoVision, verEvidencia, visionURL } from './lib/verificaciones';
 import { clasificarMovimientos, type MovimientoVideo } from './lib/sku';
 import { listarSinSku, movimientosDeVideo, registrarMovimiento, registrarSinSku, resolverSinSku, type SinSku } from './lib/movimientos-video';
-type Producto={id:string;almacen_id:string;sku:string;nombre:string;stock:number};
+type Producto={id:string;almacen_id:string;empresa_id:string;sku:string;nombre:string;stock:number};
 type Almacen={id:string;nombre:string;empresa_id:string};
 const SEGUNDOS=10;
 // HU-07: cada caja que cruza la línea del video es un movimiento con el SKU de su código;
@@ -26,7 +26,7 @@ export default function MovimientosVideo({productos,almacenes,alTerminar}:{produ
   g.onstop=()=>{const base=tipo.split(';')[0];cerrar();elegir(new File(partes,`movimientos.${base==='video/mp4'?'mp4':'webm'}`,{type:base}));};
   g.start(500);setGrabando(SEGUNDOS);reloj.current=window.setInterval(()=>setGrabando(n=>{if(n<=1){if(g.state==='recording')g.stop();return 0;}return n-1;}),1000);}
  async function analizar(){if(!video)return;setBusy(true);setMensaje('Analizando el video… puede tardar hasta un minuto.');try{const r=await movimientosDeVideo(video,clase,linea/100);setResultado(r.movimientos);setMensaje(r.movimientos.length?`${r.movimientos.length} movimiento(s) detectados. Revisa el SKU de cada uno antes de registrar.`:'Ninguna caja cruzó la línea en el video.');}catch(e){setMensaje(e instanceof Error?e.message:'No se pudo analizar el video.');}finally{setBusy(false);}}
- async function registrar(){if(!almacen)return;setBusy(true);let ok=0,revision=0;try{for(const f of filas){if(f.producto){await registrarMovimiento(f.producto.id,f.sentido);ok++;}else{await registrarSinSku(almacen,f);revision++;}}setMensaje(`${ok} movimiento(s) registrados con su SKU y ${revision} enviados a revisión manual.`);setResultado(null);setVideo(null);}catch(e){setMensaje(`${ok} registrados antes del error. ${e instanceof Error?e.message:''}`);}finally{setBusy(false);await alTerminar();await cargarPendientes();}}
+ async function registrar(){if(!almacen)return;setBusy(true);let ok=0,revision=0;try{for(const f of filas){if(f.producto){await registrarMovimiento(f.producto.id,f.sentido,f.producto.empresa_id,f.imagen);ok++;}else{await registrarSinSku(almacen,f);revision++;}}setMensaje(`${ok} movimiento(s) registrados con su SKU y ${revision} enviados a revisión manual.`);setResultado(null);setVideo(null);}catch(e){setMensaje(`${ok} registrados antes del error. ${e instanceof Error?e.message:''}`);}finally{setBusy(false);await alTerminar();await cargarPendientes();}}
  async function resolver(p:SinSku){const producto=asignar[p.id];if(!producto)return;setBusy(true);try{await resolverSinSku(p.id,producto);setMensaje('Producto asignado y movimiento registrado.');await alTerminar();await cargarPendientes();}catch(e){setMensaje(e instanceof Error?e.message:'No se pudo asignar.');}finally{setBusy(false);}}
  return <section className="video-movements"><div className="vs-section-title"><h2>Registrar movimientos por video</h2><span>HU-07 · SKU POR CÓDIGO</span></div>
  {!visionURL||!listo?<div className="vision-status"><Video size={20}/><p>El registro por video necesita el servicio de visión con el modelo cargado.</p></div>:

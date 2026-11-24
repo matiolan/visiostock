@@ -160,6 +160,36 @@ begin
 end $$;
 alter table public.vs_movimientos enable trigger vs_movimientos_bloquear_update;
 
+-- Caso 6: cambiar la evidencia o la marca de fuera de horario (SCRUM-26) tambien se detecta.
+alter table public.vs_movimientos disable trigger vs_movimientos_bloquear_update;
+update public.vs_movimientos set fuera_de_horario = true where id = '43000000-0000-0000-0000-000000000001';
+do $$
+declare v boolean; alt uuid;
+begin
+  select valido, primer_alterado into v, alt from public.vs_verificar_cadena('40000000-0000-0000-0000-000000000001');
+  if v or alt <> '43000000-0000-0000-0000-000000000001' then
+    raise exception 'Caso 6: cambiar fuera_de_horario no quedo detectado por la cadena de hash';
+  end if;
+end $$;
+update public.vs_movimientos set fuera_de_horario = false, foto_evidencia = 'otra/ruta.jpg' where id = '43000000-0000-0000-0000-000000000001';
+do $$
+declare v boolean; alt uuid;
+begin
+  select valido, primer_alterado into v, alt from public.vs_verificar_cadena('40000000-0000-0000-0000-000000000001');
+  if v or alt <> '43000000-0000-0000-0000-000000000001' then
+    raise exception 'Caso 6: cambiar foto_evidencia no quedo detectado por la cadena de hash';
+  end if;
+end $$;
+update public.vs_movimientos set foto_evidencia = null where id = '43000000-0000-0000-0000-000000000001';
+alter table public.vs_movimientos enable trigger vs_movimientos_bloquear_update;
+do $$
+declare v boolean;
+begin
+  select valido into v from public.vs_verificar_cadena('40000000-0000-0000-0000-000000000001');
+  if not v then raise exception 'Caso 6: al restaurar los valores la cadena deberia volver a ser valida'; end if;
+  raise notice 'Caso 6 OK: cambiar fuera_de_horario o foto_evidencia se detecta';
+end $$;
+
 -- Confirma que el bloqueo (HU-11 escenario 1) sigue intacto despues de estos cambios.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000c1', true);
@@ -176,6 +206,6 @@ begin
 end $$;
 reset role;
 
-select 'OK: los 5 casos de la revision quedan corregidos, y el bloqueo sigue intacto' as resultado;
+select 'OK: los 6 casos quedan corregidos, y el bloqueo sigue intacto' as resultado;
 
 rollback;
