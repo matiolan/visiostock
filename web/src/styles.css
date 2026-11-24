@@ -49,3 +49,18 @@ textarea{font:inherit;width:100%;min-height:95px;padding:12px;border:1px solid #
 .vs-login .vs-google:hover{background:#f8fafc}
 .vs-separador{display:flex;align-items:center;gap:10px;color:#8694a7;font-size:12px;margin:14px 0 0}
 .vs-separador:before,.vs-separador:after{content:"";flex:1;border-top:1px solid #e0e7ef}
+
+/* Conteo en vivo por zonas */
+.live-count{margin-bottom:38px}
+.live-view{position:relative;background:#10243c;border-radius:8px;overflow:hidden;touch-action:none}
+.live-view video{display:block;width:100%;height:auto}
+.live-view svg{position:absolute;inset:0;width:100%;height:100%}
+.live-view.drawing{cursor:crosshair}
+.live-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 16px}
+.live-totals div{background:#f0f5fc;border:1px solid #d5e1f1;border-radius:8px;padding:12px;text-align:center}
+.live-totals strong{display:block;font-size:26px;color:#2b527f}
+.live-totals span{font-size:11px;color:#647e9e}
+.live-count .movement-list{max-height:330px;overflow:auto}
+.live-count .movement-list button{margin-left:auto}
+.live-check{display:flex;gap:8px;align-items:center;font-size:12px}
+.live-check input{width:auto;margin:0}

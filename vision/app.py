@@ -3,6 +3,7 @@
 El token de Supabase se valida con Auth y se usa para consultar el producto con RLS.
 Requiere pesos locales de un detector validado, nunca descarga un modelo genérico.
 """
+import hashlib
 import io
 import os
 import threading
@@ -35,7 +36,10 @@ LOCK = threading.Lock()
 Image.MAX_IMAGE_PIXELS = 20_000_000
 MAX_PETICION = 5 * 1024 * 1024 + 64 * 1024  # imagen de 5 MB más los campos del formulario
 POR_MINUTO = int(os.getenv('VISION_LIMITE_POR_MINUTO', '20'))
+POR_MINUTO_VIVO = int(os.getenv('VISION_LIMITE_VIVO', '1500'))  # cuadros de /detectar por minuto
 VISITAS: dict[str, deque] = {}
+SESIONES: dict[str, float] = {}  # huella del token -> hasta cuándo vale sin volver a consultar Supabase
+SESION_VIVO = 60
 LIMITADAS = {'/analizar', '/identificar', '/movimientos', '/manipulacion', '/camaras/probar'}  # rutas que consultan Supabase y usan CPU
 MAX_SEGUNDOS_VIDEO = 30
 # Si el modelo tiene esta clase (rasgón, abolladura, hueco, humedad), cada caja con un daño
@@ -50,8 +54,9 @@ def dano_en_caja(dano: dict, caja: dict, margen: float = .1) -> bool:
     return caja['x1'] - mx <= cx <= caja['x2'] + mx and caja['y1'] - my <= cy <= caja['y2'] + my
 
 
-def espera_frecuencia(ip: str) -> int:
+def espera_frecuencia(ip: str, limite: int | None = None) -> int:
     """Ventana de 60 s por IP. Devuelve los segundos de espera, o 0 si la petición pasa."""
+    limite = POR_MINUTO if limite is None else limite
     ahora = time.monotonic()
     if len(VISITAS) > 10_000:
         for clave in [c for c, v in VISITAS.items() if not v or v[-1] <= ahora - 60]:
@@ -59,7 +64,7 @@ def espera_frecuencia(ip: str) -> int:
     visitas = VISITAS.setdefault(ip, deque())
     while visitas and visitas[0] <= ahora - 60:
         visitas.popleft()
-    if len(visitas) >= POR_MINUTO:
+    if len(visitas) >= limite:
         return int(visitas[0] + 60 - ahora) + 1 if visitas else 60
     visitas.append(ahora)
     return 0
@@ -78,8 +83,10 @@ class Protecciones:
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
-        if scope['method'] == 'POST' and scope['path'] in LIMITADAS:
-            espera = espera_frecuencia((scope.get('client') or ('desconocido',))[0])
+        if scope['method'] == 'POST' and scope['path'] in LIMITADAS | {'/detectar'}:
+            ip = (scope.get('client') or ('desconocido',))[0]
+            # El conteo en vivo envía varios cuadros por segundo: tiene su propio límite.
+            espera = espera_frecuencia(ip + ' vivo', POR_MINUTO_VIVO) if scope['path'] == '/detectar' else espera_frecuencia(ip)
             if espera:
                 respuesta = JSONResponse({'detail': 'Demasiados análisis seguidos. Inténtalo en un minuto.'}, 429,
                                          headers={'Retry-After': str(espera)})
@@ -149,6 +156,17 @@ def autorizar(token: str, producto: str | None = None):
         raise HTTPException(503, 'No se pudo verificar la sesión con Supabase.') from None
 
 
+def autorizar_vivo(token: str):
+    """Como autorizar, pero recuerda la sesión válida por un minuto para no consultar Supabase en cada cuadro."""
+    ahora, huella = time.monotonic(), hashlib.sha256(token.encode()).hexdigest()
+    if SESIONES.get(huella, 0) > ahora:
+        return
+    autorizar(token)
+    for clave in [c for c, hasta in SESIONES.items() if hasta <= ahora]:
+        del SESIONES[clave]
+    SESIONES[huella] = ahora + SESION_VIVO
+
+
 @asynccontextmanager
 async def lifespan(app):
     global MODELO, CLASES, MOTIVO
@@ -201,6 +219,47 @@ def identificar(imagen: UploadFile = File(...), authorization: str = Header(defa
         raise HTTPException(503, 'No se pudo leer el código de la imagen.') from None
 
 
+def detectar_cajas(imagen, ids: list[int], ids_dano: list[int], conf: float) -> tuple[list[dict], list[dict]]:
+    """Cajas y daños de una imagen. Se llama con LOCK tomado."""
+    resultado = MODELO.predict(imagen, classes=ids + ids_dano, conf=conf, max_det=500, verbose=False)[0]
+    cajas, danos = [], []
+    if resultado.boxes is not None:
+        xyxy, confs = resultado.boxes.xyxy.tolist(), resultado.boxes.conf.tolist()
+        clases = resultado.boxes.cls.tolist() if ids_dano else [ids[0]] * len(xyxy)
+        for (x1, y1, x2, y2), confianza, c in zip(xyxy, confs, clases):
+            caja = {'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'confianza': float(confianza)}
+            (danos if int(c) in ids_dano else cajas).append(caja)
+    if ids_dano:
+        for caja in cajas:
+            caja['danada'] = any(dano_en_caja(d, caja) for d in danos)
+    return cajas, danos
+
+
+@app.post('/detectar')
+def detectar(imagen: UploadFile = File(...), clase: str = Form(...), authorization: str = Header(default='')):
+    """Un cuadro del conteo en vivo: solo las cajas. El recorrido entre zonas se sigue en el navegador.
+
+    Incluye cajas de confianza baja: el navegador solo las usa para no perder una caja que ya sigue.
+    """
+    autorizar_vivo(token_de(authorization))
+    if MODELO is None:
+        raise HTTPException(503, MOTIVO)
+    if clase not in CLASES:
+        raise HTTPException(422, 'Selecciona una clase habilitada en el modelo.')
+    imagen_rgb = abrir_imagen(imagen.file.read(5 * 1024 * 1024 + 1))
+    ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
+    ids_dano = [i for i, nombre in MODELO.names.items() if nombre == CLASE_DANO and nombre != clase]
+    if not LOCK.acquire(timeout=1):
+        raise HTTPException(429, 'El detector está ocupado. Se intentará con el siguiente cuadro.')
+    try:
+        cajas, _ = detectar_cajas(imagen_rgb, ids, ids_dano, .3)
+        return {'cajas': cajas, 'ancho': imagen_rgb.width, 'alto': imagen_rgb.height}
+    except Exception:
+        raise HTTPException(503, 'No se pudo completar el análisis con el modelo instalado.') from None
+    finally:
+        LOCK.release()
+
+
 @app.post('/analizar')
 def analizar(imagen: UploadFile = File(...), producto: UUID = Form(...), clase: str = Form(...),
              authorization: str = Header(default='')):
@@ -212,20 +271,10 @@ def analizar(imagen: UploadFile = File(...), producto: UUID = Form(...), clase: 
     imagen_rgb = abrir_imagen(imagen.file.read(5 * 1024 * 1024 + 1))
     ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
     ids_dano = [i for i, nombre in MODELO.names.items() if nombre == CLASE_DANO and nombre != clase]
-    if not LOCK.acquire(blocking=False):
+    if not LOCK.acquire(timeout=2):
         raise HTTPException(429, 'El detector está procesando otra imagen. Inténtalo en unos segundos.')
     try:
-        resultado = MODELO.predict(imagen_rgb, classes=ids + ids_dano, conf=.5, max_det=500, verbose=False)[0]
-        cajas, danos = [], []
-        if resultado.boxes is not None:
-            xyxy, confs = resultado.boxes.xyxy.tolist(), resultado.boxes.conf.tolist()
-            clases = resultado.boxes.cls.tolist() if ids_dano else [ids[0]] * len(xyxy)
-            for (x1, y1, x2, y2), confianza, c in zip(xyxy, confs, clases):
-                caja = {'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'confianza': float(confianza)}
-                (danos if int(c) in ids_dano else cajas).append(caja)
-        if ids_dano:
-            for caja in cajas:
-                caja['danada'] = any(dano_en_caja(d, caja) for d in danos)
+        cajas, danos = detectar_cajas(imagen_rgb, ids, ids_dano, .5)
         # HU-08: en una foto solo se puede juzgar el apilamiento; caídas y golpes requieren video.
         altura = altura_maxima_pila([Deteccion((c['x1'], c['y1'], c['x2'], c['y2']), c['confianza']) for c in cajas])
         maximo = Umbrales().max_apilado
@@ -275,7 +324,7 @@ def movimientos(video: UploadFile = File(...), clase: str = Form(...), linea: fl
         raise HTTPException(422, 'La línea debe estar entre el 5 % y el 95 % del alto del cuadro.')
     raw, extension = leer_video(video)
     ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
-    if not LOCK.acquire(blocking=False):
+    if not LOCK.acquire(timeout=2):
         raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
     try:
         with video_temporal(raw, extension) as ruta:
@@ -301,7 +350,7 @@ def manipulacion(video: UploadFile = File(...), producto: UUID = Form(...), clas
         raise HTTPException(422, 'Selecciona una clase habilitada en el modelo.')
     raw, extension = leer_video(video)
     ids = [i for i, nombre in MODELO.names.items() if nombre == clase]
-    if not LOCK.acquire(blocking=False):
+    if not LOCK.acquire(timeout=2):
         raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
     try:
         with video_temporal(raw, extension) as ruta:
@@ -340,7 +389,7 @@ def probar(prueba: PruebaCamaras, authorization: str = Header(default='')):
         return {'camaras': probar_camaras(camaras, min(prueba.segundos, 3))}
     if MODELO is None:
         raise HTTPException(503, MOTIVO)
-    if not LOCK.acquire(blocking=False):
+    if not LOCK.acquire(timeout=2):
         raise HTTPException(429, 'El detector está procesando otra solicitud. Inténtalo en unos segundos.')
     try:
         from ultralytics import YOLO
