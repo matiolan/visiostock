@@ -10,7 +10,7 @@ b=io.BytesIO();Image.new('RGB',(40,30),'white').save(b,format='JPEG');raw=b.getv
 PID='00000000-0000-0000-0000-000000000001'
 class VisionTests(unittest.TestCase):
  def setUp(self):
-  self.client=TestClient(mod.app);mod.MODELO=None;mod.CLASES=[];mod.VISITAS.clear()
+  self.client=TestClient(mod.app);mod.MODELO=None;mod.CLASES=[];mod.VISITAS.clear();mod.SESIONES.clear()
  def request(self,raw_image=raw,headers={'Authorization':'Bearer test'},clase='caja'):
   return self.client.post('/analizar',headers=headers,data={'producto':PID,'clase':clase},files={'imagen':('foto.jpg',raw_image,'image/jpeg')})
  def test_estado_sin_modelo(self):
@@ -29,6 +29,25 @@ class VisionTests(unittest.TestCase):
   model=self.model()
   with patch.object(mod,'autorizar') as auth:r=self.request()
   self.assertEqual(r.status_code,200);self.assertEqual(r.json()['conteo'],2);self.assertEqual(r.json()['ancho'],40);self.assertEqual(r.json()['alto'],30);auth.assert_called_once_with('test',PID);self.assertEqual(model.predict.call_args.kwargs['classes'],[0])
+ def detectar(self,clase='caja',headers={'Authorization':'Bearer test'}):
+  return self.client.post('/detectar',headers=headers,data={'clase':clase},files={'imagen':('c.jpg',raw,'image/jpeg')})
+ def test_detectar_cuadro_en_vivo(self):
+  model=self.model()
+  with patch.object(mod,'autorizar') as auth:r=self.detectar();self.detectar()
+  self.assertEqual(r.status_code,200);self.assertEqual(len(r.json()['cajas']),2);self.assertEqual(r.json()['ancho'],40)
+  self.assertEqual(auth.call_count,1);self.assertEqual(model.predict.call_args.kwargs['classes'],[0])
+ def test_detectar_exige_sesion_y_no_recuerda_rechazos(self):
+  self.model();self.assertEqual(self.detectar(headers={}).status_code,401)
+  with patch.object(mod,'autorizar',side_effect=mod.HTTPException(401,'x')) as auth:
+   self.assertEqual(self.detectar().status_code,401);self.assertEqual(self.detectar().status_code,401);self.assertEqual(auth.call_count,2)
+ def test_detectar_vuelve_a_comprobar_la_sesion(self):
+  self.model()
+  with patch.object(mod,'autorizar') as auth,patch.object(mod,'SESION_VIVO',0):self.detectar();self.detectar()
+  self.assertEqual(auth.call_count,2)
+ def test_detectar_limite_propio_y_clase(self):
+  self.model()
+  with patch.object(mod,'autorizar'),patch.object(mod,'POR_MINUTO',0),patch.object(mod,'POR_MINUTO_VIVO',2):
+   self.assertEqual(self.detectar(clase='dano').status_code,422);self.assertEqual(self.detectar().status_code,200);self.assertEqual(self.detectar().status_code,429)
  def test_marca_cajas_danadas(self):
   model=self.model();model.names={0:'caja',1:'dano'};res=model.predict.return_value[0]
   res.boxes.xyxy.tolist.return_value=[[0,0,10,10],[20,0,30,10],[3,3,6,6]];res.boxes.conf.tolist.return_value=[.9,.8,.7];res.boxes.cls.tolist.return_value=[0,0,1]

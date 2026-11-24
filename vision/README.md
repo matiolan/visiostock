@@ -60,6 +60,14 @@ python vision/evaluar_sku.py video.mp4 esperado.csv --modelo vision/models/best.
 
 Con un video sintético de 50 cajas (QR y Code128, 3 sin código legible) el resultado fue 50/50. Falta medirlo con cajas reales.
 
+### Conteo en vivo por zonas
+
+En **Movimientos → Conteo en vivo** se dibujan dos zonas sobre la imagen de la cámara: **A** (afuera) y **B** (almacén). Una caja que pasa de A a B es una entrada y de B a A una salida, en cualquier dirección; si vuelve por la misma zona no se cuenta. No hace falta leer un código: cada caja se registra en el producto elegido para la sesión, porque el modelo reconoce cajas, no referencias. Un código leído puede usarse con el registro por video (HU-07).
+
+El navegador recorta el área de las zonas (así las cajas lejanas se detectan mejor) y envía cada cuadro a `POST /detectar`; el seguimiento ocurre en el navegador. La sesión se comprueba con Supabase como máximo una vez por minuto y los cuadros tienen su propio límite (`VISION_LIMITE_VIVO`). Las zonas se guardan por cámara con `supabase/12_zonas_conteo.sql`; sin esa migración quedan solo en el navegador. Un video cargado sirve para probar y no cambia el stock.
+
+La cámara debe estar fija. En una CPU de 20 hilos y en la misma red se procesaron entre 7 y 10 cuadros por segundo; por internet serán menos. En un video de 20 s con una faja diagonal se contaron las 4 cajas de cartón que completaron el recorrido; los paquetes envueltos en plástico no se detectan como cajas.
+
 ### Cámaras IP y zonas (HU-17)
 
 En **Cámaras y zonas** se registran cámaras del equipo o cámaras IP con su URL RTSP y su línea virtual. `POST /camaras/probar` recibe hasta 4 cámaras y atiende cada una en su propio hilo con su copia del modelo:

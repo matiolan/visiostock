@@ -69,6 +69,15 @@ test('inventario: el buscador filtra y la tabla marca lo que hay que reponer', a
   await contexto.close();
 });
 
+test('movimientos: el conteo en vivo (SCRUM-80) va primero, antes del registro manual', async () => {
+  const { pagina, errores, contexto } = await abrirPanel(1366, 860, { ruta: '/portal#movimientos' });
+  await pagina.getByRole('heading', { level: 2, name: 'Conteo en vivo' }).waitFor();
+  const orden = await pagina.locator('main h2').allInnerTexts();
+  assert.ok(orden.indexOf('Conteo en vivo') < orden.indexOf('Registrar entrada o salida'), orden.join(' | '));
+  assert.deepEqual(errores, []);
+  await contexto.close();
+});
+
 for (const [nombre, ancho, alto] of TAMANOS) {
   test(`${nombre} (${ancho}px): resumen e inventario sin desplazamiento horizontal`, async () => {
     const { pagina, errores, contexto } = await abrirPanel(ancho, alto);

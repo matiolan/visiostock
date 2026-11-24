@@ -232,6 +232,20 @@
 .vs-app .movement-list small,.vs-app .incident-list small{color:var(--gris)}
 .vs-app .video-movements{display:flex;flex-direction:column;gap:16px}
 
+/* Conteo en vivo por zonas (SCRUM-80), con los colores del panel */
+.vs-app .live-count{display:flex;flex-direction:column;gap:16px}
+.vs-app .live-view{position:relative;background:var(--pizarra);overflow:hidden;touch-action:none}
+.vs-app .live-view video{display:block;width:100%;height:auto}
+.vs-app .live-view svg{position:absolute;inset:0;width:100%;height:100%}
+.vs-app .live-view.drawing{cursor:crosshair;outline:3px dashed var(--senal);outline-offset:-3px}
+.vs-app .live-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vs-app .live-totals div{background:var(--pizarra);color:var(--papel);padding:12px 14px;display:flex;flex-direction:column-reverse;gap:4px}
+.vs-app .live-totals strong{font-stretch:68%;font-weight:800;font-size:40px;line-height:1;color:var(--senal);font-variant-numeric:tabular-nums}
+.vs-app .live-totals span{font-size:13px;color:#c9d3e0}
+.vs-app .live-count .movement-list{max-height:330px;overflow:auto}
+.vs-app .live-count .movement-list button{margin-left:auto}
+.vs-app .live-check{display:flex;gap:10px;align-items:center;margin:0;font-size:14px;font-weight:600}
+
 /* Cámaras */
 .vs-app .camera-wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .vs-app .camera-wall figure{margin:0;background:var(--blanco);border:1px solid var(--linea)}

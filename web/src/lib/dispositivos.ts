@@ -1,6 +1,6 @@
 // HU-17: funciones sin dependencias para relacionar cámaras registradas con las del equipo.
 export type Zona={id:string;empresa_id:string;almacen_id:string;nombre:string};
-export type Camara={id:string;empresa_id:string;zona_id:string;nombre:string;dispositivo:string;activa:boolean;tipo?:'navegador'|'rtsp';url?:string;linea?:number;ultima_senal?:string|null;fps?:number|null};
+export type Camara={id:string;empresa_id:string;zona_id:string;nombre:string;dispositivo:string;activa:boolean;tipo?:'navegador'|'rtsp';url?:string;linea?:number;ultima_senal?:string|null;fps?:number|null;zonas_conteo?:number[][]|null};
 type Dispositivo={deviceId:string;label:string;kind:string};
 export const SIN_SENAL_MS=60000;
 // El deviceId cambia entre sitios y al borrar permisos; el nombre (label) del navegador es estable.

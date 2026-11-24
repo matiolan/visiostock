@@ -5,7 +5,7 @@ export type Grupo = 'Operación' | 'Vigilancia' | 'Gestión';
 export const VISTAS: { id: Vista; grupo: Grupo; descripcion: string; soloAdmin?: boolean }[] = [
   { id: 'Resumen', grupo: 'Operación', descripcion: 'Lo más importante de tu almacén: stock, alertas y últimos movimientos.' },
   { id: 'Inventario', grupo: 'Operación', descripcion: 'Productos y stock por almacén. Registra productos o impórtalos desde un CSV.' },
-  { id: 'Movimientos', grupo: 'Operación', descripcion: 'Entradas y salidas registradas a mano o detectadas en video.' },
+  { id: 'Movimientos', grupo: 'Operación', descripcion: 'Entradas y salidas contadas en vivo con la cámara, detectadas en video o registradas a mano.' },
   { id: 'Verificación visual', grupo: 'Operación', descripcion: 'Toma una foto, cuenta las cajas y compáralas con el stock registrado.' },
   { id: 'Alertas', grupo: 'Vigilancia', descripcion: 'Diferencias de stock y movimientos fuera de horario que alguien debe revisar.' },
   { id: 'Manipulación', grupo: 'Vigilancia', descripcion: 'Caídas, golpes y pilas demasiado altas detectadas en video.' },

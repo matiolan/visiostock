@@ -9,6 +9,7 @@ import '@fontsource-variable/archivo/wdth.css';
 import './portal.css';
 import Verificaciones from './Verificaciones';
 import MovimientosVideo from './MovimientosVideo';
+import ConteoVivo from './ConteoVivo';
 import Camaras from './Camaras';
 import Manipulacion from './Manipulacion';
 import ImportarInventario from './ImportarInventario';
@@ -235,6 +236,7 @@ export default function Portal() {
           </>}
 
           {actual.id === 'Movimientos' && <>
+            <ConteoVivo productos={datos.productos} almacenes={datos.almacenes} empresas={datos.empresas} alTerminar={cargar} />
             <section className="tarjeta">
               <div className="tarjeta-titulo"><h2>Registrar entrada o salida</h2></div>
               <form className="vs-form-grid" onSubmit={e => guardar(e, 'movimiento', 'Movimiento registrado y stock actualizado.')}>
