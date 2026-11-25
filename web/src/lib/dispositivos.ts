@@ -3,6 +3,8 @@ export type Zona={id:string;empresa_id:string;almacen_id:string;nombre:string};
 export type Camara={id:string;empresa_id:string;zona_id:string;nombre:string;dispositivo:string;activa:boolean;tipo?:'navegador'|'rtsp';url?:string;linea?:number;ultima_senal?:string|null;fps?:number|null;zonas_conteo?:number[][]|null};
 type Dispositivo={deviceId:string;label:string;kind:string};
 export const SIN_SENAL_MS=60000;
+// Las zonas que se pueden elegir para una empresa: nunca las de otra (el horario apunta a una zona de su empresa).
+export const zonasDeEmpresa=(zonas:Zona[],empresa:string)=>zonas.filter(z=>z.empresa_id===empresa);
 // El deviceId cambia entre sitios y al borrar permisos; el nombre (label) del navegador es estable.
 export function buscarDispositivo<T extends Dispositivo>(dispositivos:T[],guardado:string):T|null{
  const nombre=guardado.trim().toLowerCase();if(!nombre)return null;
