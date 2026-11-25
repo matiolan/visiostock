@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buscarDispositivo as buscar,camarasDelAlmacen as delAlmacen,ubicacion,estadoCamara as estado,zonasSinMonitoreo as sinMonitoreo,urlSinClave as sinClave,urlRtspValida as valida} from '../src/lib/dispositivos.ts';
+import {buscarDispositivo as buscar,camarasDelAlmacen as delAlmacen,ubicacion,estadoCamara as estado,zonasSinMonitoreo as sinMonitoreo,urlSinClave as sinClave,urlRtspValida as valida,zonasDeEmpresa} from '../src/lib/dispositivos.ts';
 const equipo=[{deviceId:'a1',label:'Integrated Camera (04f2:b6d9)',kind:'videoinput'},{deviceId:'b2',label:'Logitech C920',kind:'videoinput'},{deviceId:'m1',label:'Logitech C920',kind:'audioinput'}];
 const zonas=[{id:'z1',empresa_id:'e',almacen_id:'alm1',nombre:'Recepción'},{id:'z2',empresa_id:'e',almacen_id:'alm1',nombre:'Despacho'},{id:'z3',empresa_id:'e',almacen_id:'alm2',nombre:'Pasillo A'}];
 const camaras=[{id:'c1',empresa_id:'e',zona_id:'z1',nombre:'Puerta',dispositivo:'Logitech C920',activa:true},{id:'c2',empresa_id:'e',zona_id:'z2',nombre:'Andén',dispositivo:'',activa:false},{id:'c3',empresa_id:'e',zona_id:'z3',nombre:'Rack',dispositivo:'',activa:true}];
@@ -15,3 +15,4 @@ test('estado de las cámaras IP según la última señal',()=>{assert.equal(esta
 test('zona sin monitoreo cuando todas sus cámaras IP pasan 60 s sin señal',()=>{const cs=[ip('a','z1',90),ip('b','z2',90),ip('c','z2',10),ip('d','z3',5,false)];assert.deepEqual(sinMonitoreo(zonas,cs,ahora).map(z=>z.id),['z1']);});
 test('las cámaras IP no se ofrecen para abrir en el navegador',()=>assert.deepEqual(delAlmacen([...camaras,ip('x','z1',1)],zonas,'alm1').map(c=>c.id),['c1']));
 test('oculta usuario y clave de la URL y valida RTSP',()=>{assert.equal(sinClave('rtsp://lectura:secreta@192.168.1.20:554/s1'),'rtsp://192.168.1.20:554/s1');assert.ok(valida('rtsp://192.168.1.20:554/s1'));assert.ok(!valida('http://192.168.1.20/s1'));assert.ok(!valida('rtsp://cam x/1'));});
+test('el selector de zonas solo ofrece las de la empresa elegida',()=>{const dos=[...zonas,{id:'z9',empresa_id:'otra',almacen_id:'alm9',nombre:'Ajena'}];assert.deepEqual(zonasDeEmpresa(dos,'e').map(z=>z.id),['z1','z2','z3']);assert.deepEqual(zonasDeEmpresa(dos,'otra').map(z=>z.id),['z9']);assert.deepEqual(zonasDeEmpresa(dos,'ninguna'),[]);});

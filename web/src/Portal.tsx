@@ -19,7 +19,7 @@ import { api } from './lib/api';
 import { listarCamaras } from './lib/camaras';
 import { listarVerificaciones, verEvidencia } from './lib/verificaciones';
 import { listarIncidencias } from './lib/manipulacion';
-import type { Zona } from './lib/dispositivos';
+import { zonasDeEmpresa, type Zona } from './lib/dispositivos';
 import { supabaseBrowser } from './lib/supabase';
 import { VISTAS, vistaDesdeHash, hashDeVista, enUmbral, porcentajeStock, type Vista } from './lib/panel';
 
@@ -46,7 +46,7 @@ export default function Portal() {
   const [datos, setDatos] = useState<Datos | null>(null), [error, setError] = useState(''), [mensaje, setMensaje] = useState('');
   const [vista, setVistaEstado] = useState<Vista>(() => vistaDesdeHash(window.location.hash));
   const [filtro, setFiltro] = useState(''), [busy, setBusy] = useState(false), [menu, setMenu] = useState(false);
-  const [diasHorario, setDiasHorario] = useState<string[]>(['1', '2', '3', '4', '5', '6']);
+  const [diasHorario, setDiasHorario] = useState<string[]>(['1', '2', '3', '4', '5', '6']), [empresaHorario, setEmpresaHorario] = useState('');
   const [zonas, setZonas] = useState<Zona[]>([]), [pendientes, setPendientes] = useState<Pendientes>(null);
   const lateral = useRef<HTMLElement>(null), botonMenu = useRef<HTMLButtonElement>(null);
 
@@ -256,8 +256,8 @@ export default function Portal() {
             <section><h2>Nuevo almacén</h2><form onSubmit={e => guardar(e, 'almacen', 'Almacén creado.')}><label>Empresa<select name="empresa" required>{empresas}</select></label><label>Nombre<input name="nombre" required /></label><label>Dirección<input name="direccion" /></label><button disabled={busy}>Crear almacén</button></form></section>
             <section><h2>Asignar cliente</h2><form onSubmit={e => guardar(e, 'asignar', 'Cliente asignado a su empresa.')}><label>Empresa<select name="empresa" required>{empresas}</select></label><label>Correo<input type="email" name="email" required /></label><button disabled={busy}>Asignar a empresa</button></form><small>La persona entra primero con Google o se crea su cuenta en Supabase → Authentication → Users. Aquí asignas ese correo a su empresa; no se envía una invitación.</small></section>
             <section><h2>Horario laboral</h2><form onSubmit={guardarHorario}>
-              <label>Empresa<select name="empresa" required>{empresas}</select></label>
-              <label>Zona (opcional)<select name="zona"><option value="">Horario general de la empresa</option>{zonas.map(z => <option key={z.id} value={z.id}>{nombreAlmacen(z.almacen_id)} · {z.nombre}</option>)}</select></label>
+              <label>Empresa<select name="empresa" required value={empresaHorario || datos.empresas[0]?.id || ''} onChange={e => setEmpresaHorario(e.target.value)}>{empresas}</select></label>
+              <label>Zona (opcional)<select name="zona" key={empresaHorario || datos.empresas[0]?.id}><option value="">Horario general de la empresa</option>{zonasDeEmpresa(zonas, empresaHorario || datos.empresas[0]?.id || '').map(z => <option key={z.id} value={z.id}>{nombreAlmacen(z.almacen_id)} · {z.nombre}</option>)}</select></label>
               <fieldset><legend>Días laborales</legend><div className="dias">{DIAS.map(([v, l]) => <label key={v}><input type="checkbox" checked={diasHorario.includes(v)} onChange={e => setDiasHorario(e.target.checked ? [...diasHorario, v] : diasHorario.filter(d => d !== v))} /> {l}</label>)}</div></fieldset>
               <div className="dos-columnas" style={{ gap: 12 }}><label>Inicio<input name="inicio" type="time" defaultValue="07:00" required /></label><label>Fin<input name="fin" type="time" defaultValue="19:00" required /></label></div>
               <button disabled={busy}>Guardar horario</button>
